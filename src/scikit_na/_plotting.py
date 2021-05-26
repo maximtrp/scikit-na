@@ -79,12 +79,12 @@ def plot_stats(
     ValueError
         Raised if neither ``idxstr`` nor ``idxint`` are passed.
     """
-    if not (idxstr or idxint):
+    if not (idxstr is not None or idxint is not None):
         raise ValueError("Error: `idxstr` or `idxint` must be specified")
 
-    if idxstr:
+    if idxstr is not None:
         y_data = na_info.loc[idxstr, :]
-    elif idxint:
+    elif idxint is not None:
         y_data = na_info.iloc[idxint, :]
     x_data = na_info.columns
 
@@ -218,4 +218,4 @@ def plot_heatmap(
         legend_elements.insert(1, Patch(facecolor=cmap[1]))
     ax.legend(legend_elements, labels, **legend_kws)
 
-    return data_na, ax
+    return ax
