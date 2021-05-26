@@ -120,4 +120,5 @@ def correlate(
         Correlation values.
     """
     cols = array(columns) if columns is not None else data.columns
+    kwargs.setdefault('method', 'spearman')
     return data.loc[:, cols].isna().corr(**kwargs)
