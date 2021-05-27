@@ -1,12 +1,15 @@
-from ._na import correlate
+from ._na import _get_rows_after_cum_dropna, correlate
 from pandas import DataFrame
 from pandas.core.indexes.base import Index
 from typing import Optional, Union, List
-from numpy import arange, array, argwhere, ndarray, fill_diagonal, nan
+from numpy import (
+    arange, argmin, argmax, array, ndarray, fill_diagonal, nan,
+    insert, diff)
 from seaborn import heatmap, barplot, diverging_palette
 from matplotlib.pyplot import subplots
 from matplotlib.axes import SubplotBase
 from matplotlib.patches import Patch
+from functools import partial
 
 
 def plot_corr(
@@ -217,5 +220,90 @@ def plot_heatmap(
     if droppable:
         legend_elements.insert(1, Patch(facecolor=cmap[1]))
     ax.legend(legend_elements, labels, **legend_kws)
+
+    return ax
+
+
+def plot_stairs(
+        data: DataFrame,
+        columns: Optional[Union[List, ndarray, Index]] = None,
+        frame: bool = False,
+        sort: Optional[Union["min", "max", None]] = "min",
+        splt_kws: dict = {},
+        stairs_kws: dict = {},
+        text_kws: dict = {}) -> SubplotBase:
+    """Stairs plot of cumulative changes in rows number
+    after applying :py:meth:`pandas.DataFrame.dropna()` method.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Optional[Union[List, ndarray, Index]], optional
+        Column names.
+    frame : bool, optional
+        Draw axes frame.
+    sort : Optional[Union["min", "max", None]], optional
+        Sort columns by maximum number of NA values.
+    splt_kws : dict, optional
+        Keyword arguments passed to :py:meth:`matplotlib.pyplot.subplots`.
+    stairs_kws : dict, optional
+        Keyword arguments passed to :py:meth:`matplotlib.pyplot.stairs`.
+    text_kws : dict, optional
+        Keyword arguments passed to :py:meth:`matplotlib.pyplot.text`.
+
+    Returns
+    -------
+    matplotlib.axes._subplots.AxesSubplot
+        AxesSubplot object.
+    """
+    cols = array(columns)\
+        if columns is not None else data.columns.values
+    _cols = cols.copy().tolist()
+    stairs_values = []
+    stairs_labels = []
+
+    if sort == 'min':
+        get_func = min
+        arg_func = argmin
+    elif sort == 'max':
+        get_func = max
+        arg_func = argmax
+    else:
+        get_func = lambda x: x[0]
+        arg_func = lambda _: 0
+
+    while len(_cols) > 0:
+        get_rows = partial(
+            _get_rows_after_cum_dropna, data, stairs_labels)
+        rows_after_dropna = list(map(get_rows, _cols))
+        stairs_values.append(get_func(rows_after_dropna))
+        stairs_labels.append(_cols[arg_func(rows_after_dropna)])
+        _cols.remove(_cols[arg_func(rows_after_dropna)])
+
+    stairs_values = [data.shape[0]] + stairs_values
+    stairs_labels = ["Whole dataset"] + stairs_labels
+
+    stairs_kws.setdefault('fill', True)
+    stairs_kws.setdefault('linewidth', 2)
+    stairs_kws.setdefault('ec', 'black')
+    text_kws.setdefault('ha', 'center')
+
+    fig, ax = subplots(**splt_kws)
+    ax.stairs(values=stairs_values, **stairs_kws)
+    stairs_values_diff = (diff(stairs_values) * -1)
+    stairs_values_diff = insert(
+        stairs_values_diff, 0, stairs_values_diff.mean())
+    labels_y = stairs_values + stairs_values_diff.mean() * 0.2
+    labels_x = arange(len(cols)+1) + 0.5
+
+    for text, x, y in zip(stairs_values, labels_x, labels_y):
+        ax.text(x, y, text, **text_kws)
+    ax.set_ylim(0, max(labels_y))
+    ax.yaxis.set_visible(False)
+    ax.set_xticks(labels_x)
+    ax.set_xticklabels(stairs_labels)
+    ax.set_frame_on(False)
+    fig.tight_layout()
 
     return ax

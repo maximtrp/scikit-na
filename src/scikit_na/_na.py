@@ -5,13 +5,18 @@ from numpy import array, ndarray
 from functools import partial
 
 
-def _get_unique_na(data, cols, col):
+def _get_unique_na(data, cols, col) -> int:
     return data.dropna(subset=set(cols).difference(col))\
         .loc[:, col].isna().sum()
 
 
-def _get_rows_after_dropna(data, col=None):
+def _get_rows_after_dropna(data, col=None) -> int:
     return data.dropna(subset=([col] if col else None)).shape[0]
+
+
+def _get_rows_after_cum_dropna(
+        data, cols: list = [], col: str = None) -> int:
+    return data.dropna(subset=(cols + [col] if col else cols)).shape[0]
 
 
 def _get_abs_na_count(data: DataFrame, cols) -> Series:
@@ -31,7 +36,7 @@ def _get_total_na_count(data: DataFrame, cols) -> int:
 def describe(
         data: DataFrame,
         columns: Optional[Union[List, ndarray, Index]] = None,
-        per_column: bool = True):
+        per_column: bool = True) -> DataFrame:
     """Summary statistics on NA values.
 
     Parameters
@@ -71,7 +76,7 @@ def describe(
             index=cols,
             name='Rows left after dropna()')
         rows_perc_after_dropna = (rows_after_dropna / data.shape[0] * 100)\
-            .rename('Rows, % left after dropna()')
+            .rename('Rows % left after dropna()')
         na_df = concat((
             na_abs_count,
             na_percentage,
