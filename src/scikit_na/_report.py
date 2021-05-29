@@ -1,4 +1,4 @@
-from ._plotting import plot_corr
+from .mpl import plot_corr
 from ._na import describe
 from pandas import DataFrame
 from ipywidgets import widgets

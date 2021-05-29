@@ -1,15 +1,14 @@
-from ._na import _get_rows_after_cum_dropna, correlate
+__all__ = [
+    'plot_corr', 'plot_stats', 'plot_heatmap', 'plot_hist', 'plot_kde']
+from .._na import correlate
 from pandas import DataFrame
 from pandas.core.indexes.base import Index
 from typing import Optional, Union, List
 from numpy import (
-    arange, argmin, argmax, array, ndarray, fill_diagonal, nan,
-    insert, diff)
-from seaborn import heatmap, barplot, diverging_palette
-from matplotlib.pyplot import subplots
+    array, ndarray, fill_diagonal, nan)
+from seaborn import heatmap, histplot, kdeplot, barplot, diverging_palette
 from matplotlib.axes import SubplotBase
 from matplotlib.patches import Patch
-from functools import partial
 
 
 def plot_corr(
@@ -41,7 +40,7 @@ def plot_corr(
     cols = array(columns) if columns is not None else data.columns
 
     corr_kws.setdefault('method', 'spearman')
-    data_corr = correlate(data, cols, **corr_kws)
+    data_corr = correlate(data, columns=cols, **corr_kws)
     if mask_diag:
         fill_diagonal(data_corr.values, nan)
 
@@ -194,10 +193,12 @@ def plot_heatmap(
     matplotlib.axes._subplots.AxesSubplot
         AxesSubplot object.
     """
-    cols = array(columns) if columns is not None else data.columns.tolist()
-    data_copy = data.loc[:, cols].sort_values(by=cols).copy()\
-        if sort else data.loc[:, cols].copy()
-    data_na = data_copy.isna()
+    cols = array(columns).tolist()\
+        if columns is not None else data.columns.tolist()
+    data_na = data.loc[:, cols].isna().copy()
+    if sort:
+        data_na.sort_values(by=cols, inplace=True)
+
     if droppable:
         non_na_mask = ~data_na.values
         na_rows_mask = data_na.any(axis=1).values[:, None]
@@ -224,86 +225,182 @@ def plot_heatmap(
     return ax
 
 
-def plot_stairs(
+# def plot_stairs(
+#         data: DataFrame,
+#         columns: Optional[Union[List, ndarray, Index]] = None,
+#         frame: bool = False,
+#         grid: bool = False,
+#         labels: bool = True,
+#         sort: Optional[Union["min", "max", None]] = "min",
+#         splt_kws: dict = {},
+#         stairs_kws: dict = {},
+#         text_kws: dict = {}) -> SubplotBase:
+#     """Stairs plot of cumulative changes in rows number
+#     after applying :py:meth:`pandas.DataFrame.dropna()` method.
+
+#     Parameters
+#     ----------
+#     data : DataFrame
+#         Input data.
+#     columns : Optional[Union[List, ndarray, Index]], optional
+#         Column names.
+#     frame : bool, optional
+#         Draw axes frame.
+#     grid : bool, optional
+#         Draw grid.
+#     sort : Optional[Union["min", "max", None]], optional
+#         Sort columns by maximum number of NA values.
+#     labels : bool = True
+#         Plot data shapes above bars.
+#     splt_kws : dict, optional
+#         Keyword arguments passed to :py:meth:`matplotlib.pyplot.subplots`.
+#     stairs_kws : dict, optional
+#         Keyword arguments passed to :py:meth:`matplotlib.pyplot.stairs`.
+#     text_kws : dict, optional
+#         Keyword arguments passed to :py:meth:`matplotlib.pyplot.text`.
+
+#     Returns
+#     -------
+#     matplotlib.axes._subplots.AxesSubplot
+#         AxesSubplot object.
+#     """
+#     cols = array(columns)\
+#         if columns is not None else data.columns.values
+#     _cols = cols.copy().tolist()
+#     stairs_values = []
+#     stairs_labels = []
+
+#     if sort == 'min':
+#         get_func = min
+#         arg_func = argmin
+#     elif sort == 'max':
+#         get_func = max
+#         arg_func = argmax
+#     else:
+#         get_func = lambda x: x[0]
+#         arg_func = lambda _: 0
+
+#     while len(_cols) > 0:
+#         get_rows = partial(
+#             _get_rows_after_cum_dropna, data, stairs_labels)
+#         rows_after_dropna = list(map(get_rows, _cols))
+#         stairs_values.append(get_func(rows_after_dropna))
+#         stairs_labels.append(_cols[arg_func(rows_after_dropna)])
+#         _cols.remove(_cols[arg_func(rows_after_dropna)])
+
+#     stairs_values = array([data.shape[0]] + stairs_values)
+#     stairs_labels = ["Whole dataset"] + stairs_labels
+
+#     stairs_kws.setdefault('fill', True)
+#     stairs_kws.setdefault('linewidth', 2)
+#     stairs_kws.setdefault('ec', 'black')
+#     text_kws.setdefault('ha', 'center')
+
+#     fig, ax = subplots(**splt_kws)
+#     ax.stairs(values=stairs_values, **stairs_kws)
+
+#     # Drawing labels
+#     stairs_values_diff = (diff(stairs_values) * -1)
+#     stairs_values_diff = insert(
+#         stairs_values_diff, 0, stairs_values_diff.mean())
+#     labels_y = stairs_values +\
+#         max(stairs_values_diff.mean() * 0.2, max(stairs_values) * 0.066)
+#     labels_x = arange(len(cols)+1) + 0.5
+
+#     if labels:
+#         for text, x, y in zip(stairs_values, labels_x, labels_y):
+#             ax.text(x, y, text, **text_kws)
+
+#     # Plot settings
+#     ax.set_ylim(0, max(labels_y))
+#     ax.yaxis.set_visible(False)
+#     ax.set_xticks(labels_x)
+#     ax.set_xticklabels(stairs_labels)
+#     ax.set_frame_on(frame)
+#     ax.grid(grid)
+#     fig.tight_layout()
+
+#     return ax
+
+
+def plot_hist(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
-        frame: bool = False,
-        sort: Optional[Union["min", "max", None]] = "min",
-        splt_kws: dict = {},
-        stairs_kws: dict = {},
-        text_kws: dict = {}) -> SubplotBase:
-    """Stairs plot of cumulative changes in rows number
-    after applying :py:meth:`pandas.DataFrame.dropna()` method.
+        col: str,
+        col_na: str,
+        col_na_fmt: str = '"{}" is NA',
+        stat: str = "density",
+        common_norm: bool = False,
+        hist_kws: dict = {},
+        legend_kws: dict = {}) -> SubplotBase:
+    """Histogram plot to compare distributions of values in column `col`
+    split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
 
     Parameters
     ----------
     data : DataFrame
-        Input data.
-    columns : Optional[Union[List, ndarray, Index]], optional
-        Column names.
-    frame : bool, optional
-        Draw axes frame.
-    sort : Optional[Union["min", "max", None]], optional
-        Sort columns by maximum number of NA values.
-    splt_kws : dict, optional
-        Keyword arguments passed to :py:meth:`matplotlib.pyplot.subplots`.
-    stairs_kws : dict, optional
-        Keyword arguments passed to :py:meth:`matplotlib.pyplot.stairs`.
-    text_kws : dict, optional
-        Keyword arguments passed to :py:meth:`matplotlib.pyplot.text`.
+        Input DataFrame.
+    col : str
+        Name of column to compare distributions of values.
+    col_na : str
+        Name of column to group values by (NA/Non-NA).
+    col_na_fmt : str
+        Legend title format string.
+    common_norm : bool, optional
+        Use common norm.
+    hist_kws : dict, optional
+        Keyword arguments passed to :py:meth:`seaborn.histplot`.
 
     Returns
     -------
-    matplotlib.axes._subplots.AxesSubplot
-        AxesSubplot object.
+    SubplotBase
+        AxesSubplot returned by :py:meth:`seaborn.histplot`.
     """
-    cols = array(columns)\
-        if columns is not None else data.columns.values
-    _cols = cols.copy().tolist()
-    stairs_values = []
-    stairs_labels = []
+    data_copy = data.copy()
+    col_na_name = col_na_fmt.format(col_na)
+    data_copy[col_na_name] = data_copy.loc[:, col_na].isna()
 
-    if sort == 'min':
-        get_func = min
-        arg_func = argmin
-    elif sort == 'max':
-        get_func = max
-        arg_func = argmax
-    else:
-        get_func = lambda x: x[0]
-        arg_func = lambda _: 0
+    hist_kws.setdefault('stat', 'density')
+    hist_kws.setdefault('common_norm', False)
+    ax = histplot(x=col, hue=col_na_name, data=data_copy, **hist_kws)
 
-    while len(_cols) > 0:
-        get_rows = partial(
-            _get_rows_after_cum_dropna, data, stairs_labels)
-        rows_after_dropna = list(map(get_rows, _cols))
-        stairs_values.append(get_func(rows_after_dropna))
-        stairs_labels.append(_cols[arg_func(rows_after_dropna)])
-        _cols.remove(_cols[arg_func(rows_after_dropna)])
+    return ax
 
-    stairs_values = [data.shape[0]] + stairs_values
-    stairs_labels = ["Whole dataset"] + stairs_labels
 
-    stairs_kws.setdefault('fill', True)
-    stairs_kws.setdefault('linewidth', 2)
-    stairs_kws.setdefault('ec', 'black')
-    text_kws.setdefault('ha', 'center')
+def plot_kde(
+        data: DataFrame,
+        col: str,
+        col_na: str,
+        col_na_fmt: str = '"{}" is NA',
+        common_norm: bool = False,
+        kde_kws: dict = {}) -> SubplotBase:
+    """KDE plot to compare distributions of values in column `col`
+    split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
 
-    fig, ax = subplots(**splt_kws)
-    ax.stairs(values=stairs_values, **stairs_kws)
-    stairs_values_diff = (diff(stairs_values) * -1)
-    stairs_values_diff = insert(
-        stairs_values_diff, 0, stairs_values_diff.mean())
-    labels_y = stairs_values + stairs_values_diff.mean() * 0.2
-    labels_x = arange(len(cols)+1) + 0.5
+    Parameters
+    ----------
+    data : DataFrame
+        Input DataFrame.
+    col : str
+        Name of column to compare distributions of values.
+    col_na : str
+        Name of column to group values by (NA/Non-NA).
+    col_na_fmt : str
+        Legend title format string.
+    common_norm : bool, optional
+        Use common norm.
+    kde_kws : dict, optional
+        Keyword arguments passed to :py:meth:`seaborn.kdeplot`.
 
-    for text, x, y in zip(stairs_values, labels_x, labels_y):
-        ax.text(x, y, text, **text_kws)
-    ax.set_ylim(0, max(labels_y))
-    ax.yaxis.set_visible(False)
-    ax.set_xticks(labels_x)
-    ax.set_xticklabels(stairs_labels)
-    ax.set_frame_on(False)
-    fig.tight_layout()
+    Returns
+    -------
+    SubplotBase
+        AxesSubplot returned by :py:meth:`seaborn.kdeplot`.
+    """
+    data_copy = data.copy()
+    col_na_name = col_na_fmt.format(col_na)
+    data_copy[col_na_name] = data_copy.loc[:, col_na].isna()
+
+    kde_kws.setdefault('common_norm', False)
+    ax = kdeplot(x=col, hue=col_na_name, data=data_copy, **kde_kws)
 
     return ax
