@@ -1,12 +1,48 @@
+__all__ = ['report', 'view_dist']
 from .mpl import plot_corr
-from ._na import describe
-from pandas import DataFrame
-from ipywidgets import widgets
+from .altair import plot_dist
+from ._descr import describe
+from pandas import DataFrame, Index
+from ipywidgets import widgets, interact
 from typing import Optional, Union, List
-from pandas.core.indexes.base import Index
-from numpy import ndarray
+from numpy import array, ndarray
 from io import BytesIO
 from matplotlib.pyplot import close
+
+
+def view_dist(
+        data: DataFrame,
+        columns: Optional[Union[List, ndarray, Index]] = None,
+        **kwargs):
+    """Interactively observe distribution of values in a selected column
+    grouped by NA/non-NA values in another column.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Union[list, ndarray, Index] = None
+        Column names.
+
+    Returns
+    -------
+    _InteractFactory
+        Interactive widget.
+    """
+    cols = array(columns) if columns is not None else data.columns
+    na_cols = data.isna().sum(axis=0)\
+        .rename('na_num')\
+        .to_frame()\
+        .query('na_num > 0')\
+        .index.values
+
+    return interact(
+        lambda Column, NA:
+            plot_dist(data, col=Column, col_na=NA, **kwargs)
+            if Column != NA
+            else widgets.HTML(
+                '<em style="color: red">Note: select different columns</em>'),
+        Column=cols, NA=na_cols)
 
 
 def report(

@@ -1,6 +1,6 @@
 __all__ = [
     'plot_corr', 'plot_stats', 'plot_heatmap', 'plot_hist', 'plot_kde']
-from .._na import correlate
+from .._descr import correlate
 from pandas import DataFrame
 from pandas.core.indexes.base import Index
 from typing import Optional, Union, List
@@ -211,8 +211,8 @@ def plot_heatmap(
 
     sb_kws.setdefault('cbar', False)
     legend_kws.setdefault('loc', 'upper center')
-    legend_kws.setdefault('ncol', len(labels))
     legend_kws.setdefault('bbox_to_anchor', (0.5, 1.15))
+    legend_kws.update({'ncol': len(labels)})
 
     ax = heatmap(data_na, cmap=cmap, **sb_kws)
     ax.yaxis.set_visible(yaxis)
