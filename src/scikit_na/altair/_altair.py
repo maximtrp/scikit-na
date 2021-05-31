@@ -1,7 +1,11 @@
-__all__ = ['plot_dist', 'plot_stairs', 'plot_heatmap']
-from altair import Chart, X, Y, Color
+__all__ = ['plot_dist', 'plot_scatter', 'plot_stairs', 'plot_heatmap']
+from altair import Chart, X, Y, Color, selection_multi, condition, value
 from altair import data_transformers
-from pandas import DataFrame
+from pandas import DataFrame, Index
+from numpy import array, arange, ndarray, argmin, r_
+from functools import partial
+from .._descr import _get_rows_after_cum_dropna
+from typing import Union, Optional, List
 data_transformers.disable_max_rows()
 
 
@@ -78,7 +82,6 @@ def plot_dist(
     Chart
         Altair Chart object.
     """
-
     if not ylabel:
         ylabel = "Frequency" if kind == 'hist' else "Density"
 
@@ -109,10 +112,9 @@ def plot_dist(
     # Chart creation routine
     chart = Chart(data_copy)
 
-    if step:
-        chart = chart.mark_area(**markarea_kws)
-    else:
-        chart = chart.mark_bar(**markbar_kws)
+    chart = chart.mark_area(**markarea_kws)\
+        if step\
+        else chart.mark_bar(**markbar_kws)
 
     if kind == "hist":
         if norm:
@@ -126,19 +128,170 @@ def plot_dist(
         y_shorthand = ylabel
         chart = chart.transform_density(**density_kws)
 
+    selection = selection_multi(fields=[col_na], bind='legend')
     chart = chart.encode(
         x=X(col, **x_kws),
         y=Y(y_shorthand, **y_kws),
         color=Color(col_na, **color_kws),
         tooltip=['count()']
-    )
+    ).add_selection(selection)
 
     return chart
 
 
-def plot_stairs():
-    pass
+def plot_scatter(
+        data: DataFrame,
+        x: str,
+        y: str,
+        col_na: str,
+        na_label: str = None,
+        na_replace: dict = {True: 'NA', False: 'Filled'},
+        xlabel: str = None,
+        ylabel: str = None,
+        circle_kws: dict = {},
+        color_kws: dict = {},
+        x_kws: dict = {},
+        y_kws: dict = {}):
+    data_copy = data.loc[:, [x, y, col_na]].copy()
+    data_copy[col_na] = data_copy[col_na].isna().replace(na_replace)
+    base = Chart(data_copy)
+
+    circle_kws.setdefault('opacity', 0.5)
+    x_kws.update({'title': xlabel or x})
+    y_kws.update({'title': ylabel or y})
+    color_kws.update({'title': col_na or na_label})
+
+    selection = selection_multi(fields=[col_na], bind='legend')
+    points = base.mark_circle(**circle_kws).encode(
+        x=X(x, **x_kws),
+        y=Y(y, **y_kws),
+        color=Color(col_na, **color_kws),
+        opacity=condition(selection, value(circle_kws['opacity']), value(0))
+    ).add_selection(selection)
+
+    return points
 
 
-def plot_heatmap():
-    pass
+def plot_stairs(
+        data: DataFrame,
+        columns: Optional[Union[List, ndarray, Index]] = None,
+        xlabel: str = 'Column',
+        ylabel: str = 'Instances',
+        tooltip_label: str = 'Size difference',
+        dataset_label: str = '(Whole dataset)',
+        area_kws: dict = {},
+        chart_kws: dict = {},
+        x_kws: dict = {},
+        y_kws: dict = {}):
+    """Stairs plot for dataset and specified columns. Displays the changes in
+    dataset size (rows/instances number) after applying
+    :py:meth:`pandas.DataFrame.dropna()` to each column cumulatively.
+
+    Columns are sorted by maximum influence on dataset size.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Optional[Union[List, ndarray, Index]], optional
+        Columns to display on plot.
+    xlabel : str, optional
+        X axis label.
+    ylabel : str, optional
+        Y axis label.
+    tooltip_label : str, optional
+        Label for differences in dataset size that is displayed on a tooltip.
+    dataset_label : str, optional
+        Label for the whole dataset (before dropping any NAs).
+    area_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart.mark_area` method.
+    chart_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart` class.
+    x_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.X` class.
+    y_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Y` class.
+
+    Returns
+    -------
+    altair.Chart
+        Chart object.
+    """
+    cols = array(columns if columns is not None else data.columns).tolist()
+    stairs_values = []
+    stairs_labels = []
+
+    while len(cols) > 0:
+        get_rows = partial(
+            _get_rows_after_cum_dropna, data, stairs_labels)
+        rows_after_dropna = list(map(get_rows, cols))
+        stairs_values.append(min(rows_after_dropna))
+        stairs_labels.append(cols[argmin(rows_after_dropna)])
+        cols.remove(cols[argmin(rows_after_dropna)])
+
+    stairs_values = array([data.shape[0]] + stairs_values)
+    stairs_labels = [dataset_label] + stairs_labels
+    data_sizes = DataFrame({
+        xlabel: stairs_labels,
+        ylabel: stairs_values
+    })
+    data_sizes[tooltip_label] = data_sizes[ylabel].diff().fillna(0)
+
+    area_kws.setdefault('interpolate', 'step-after')
+    area_kws.setdefault('line', True)
+    x_kws.setdefault('sort', '-y')
+    x_kws.update({'shorthand': xlabel})
+    y_kws.update({'shorthand': ylabel})
+
+    chart = Chart(data_sizes, **chart_kws)\
+        .mark_area(**area_kws)\
+        .encode(
+            x=X(**x_kws),
+            y=Y(**y_kws),
+            tooltip=[xlabel, ylabel, tooltip_label]
+        )
+    return chart
+
+
+def plot_heatmap(
+        data: DataFrame,
+        columns: Optional[Union[List, ndarray, Index]] = [],
+        tooltip_cols: Optional[Union[List, ndarray, Index]] = [],
+        na_replace: dict = {False: 'Filled', True: 'NA'},
+        sort: bool = True,
+        xlabel: str = 'Columns',
+        ylabel: str = 'Rows',
+        zlabel: str = 'Values',
+        chart_kws: dict = {'height': 300},
+        rect_kws: dict = {},
+        x_kws: dict = {'sort': None},
+        y_kws: dict = {'sort': None},
+        color_kws: dict = {}) -> Chart:
+    cols = array(columns if columns is not None else data.columns)
+    tt_cols = array(tooltip_cols) if tooltip_cols is not None else []
+
+    data_copy = data.loc[:, r_[cols, tt_cols]].copy()
+    data_copy.loc[:, cols] = data_copy.loc[:, cols].isna().replace(na_replace)
+    if sort:
+        data_copy.sort_values(by=cols.tolist(), inplace=True)
+    data_copy[ylabel] = arange(data.shape[0])
+    data_copy = data_copy.melt(
+        id_vars=r_[[ylabel], tt_cols],
+        value_vars=cols,
+        var_name=xlabel,
+        value_name=zlabel)
+
+    x_kws.update({'shorthand': xlabel, 'type': 'nominal'})
+    y_kws.update({'shorthand': ylabel, 'type': 'ordinal'})
+    color_kws.update({'shorthand': zlabel, 'type': 'nominal'})
+
+    chart = Chart(data_copy, **chart_kws)\
+        .mark_rect(**rect_kws)\
+        .encode(
+            x=X(**x_kws),
+            y=Y(**y_kws),
+            color=Color(**color_kws),
+            tooltip=tt_cols.tolist()
+        )
+
+    return chart

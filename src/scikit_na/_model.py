@@ -14,7 +14,7 @@ def model(
         logit_kws: dict = {}):
     """Fit a logistic regression model to NA values encoded as 0 (non-missing)
     and 1 (NA) in column `col_na` with predictors passed with `columns`
-    argument. Statsmodels package is used as a backend for model fitting. 
+    argument. Statsmodels package is used as a backend for model fitting.
 
     Parameters
     ----------
