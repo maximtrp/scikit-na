@@ -1,10 +1,11 @@
 __all__ = ['plot_dist', 'plot_scatter', 'plot_stairs', 'plot_heatmap']
-from altair import Chart, X, Y, Color, selection_multi, condition, value
-from altair import data_transformers
+from altair import (
+    Chart, Color, condition, data_transformers, selection_multi,
+    Scale, Text, value, X, Y)
 from pandas import DataFrame, Index
-from numpy import array, arange, ndarray, argmin, r_
+from numpy import array, arange, ndarray, argmin, r_, nan, fill_diagonal
 from functools import partial
-from .._descr import _get_rows_after_cum_dropna
+from .._descr import _get_rows_after_cum_dropna, correlate
 from typing import Union, Optional, List
 data_transformers.disable_max_rows()
 
@@ -194,7 +195,7 @@ def plot_stairs(
     data : DataFrame
         Input data.
     columns : Optional[Union[List, ndarray, Index]], optional
-        Columns to display on plot.
+        Columns that are to be displayed on a plot.
     xlabel : str, optional
         X axis label.
     ylabel : str, optional
@@ -257,8 +258,9 @@ def plot_heatmap(
         data: DataFrame,
         columns: Optional[Union[List, ndarray, Index]] = [],
         tooltip_cols: Optional[Union[List, ndarray, Index]] = [],
-        na_replace: dict = {False: 'Filled', True: 'NA'},
+        names: list = ['Filled', 'NA', 'Droppable'],
         sort: bool = True,
+        droppable: bool = True,
         xlabel: str = 'Columns',
         ylabel: str = 'Rows',
         zlabel: str = 'Values',
@@ -267,13 +269,69 @@ def plot_heatmap(
         x_kws: dict = {'sort': None},
         y_kws: dict = {'sort': None},
         color_kws: dict = {}) -> Chart:
+    """Heatmap plot for NA/non-NA values. By default, it also displays values
+    that are to be dropped by :py:meth:`pandas.DataFrame.dropna()` method.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Optional[Union[List, ndarray, Index]], optional
+        Columns that are to be displayed on a plot.
+    tooltip_cols : Optional[Union[List, ndarray, Index]], optional
+        Columns to be used in tooltips.
+    names : list, optional
+        Values labels passed as a list.
+        The first element corresponds to non-missing values,
+        the second one to NA values, and the last one to droppable values, i.e.
+        values to be dropped by :py:meth:`pandas.DataFrame.dropna()`.
+    sort : bool, optional
+        Sort values as NA/non-NA.
+    droppable : bool, optional
+        Show values to be dropped by `dropna()` method.
+    xlabel : str, optional
+        X axis label.
+    ylabel : str, optional
+        Y axis label.
+    zlabel : str, optional
+        Groups label (shown as a legend title).
+    chart_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart` class.
+    rect_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart.mark_rect` method.
+    x_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.X` class.
+    y_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Y` class.
+    color_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Color` class.
+
+    Returns
+    -------
+    altair.Chart
+        Altair Chart object.
+    """
     cols = array(columns if columns is not None else data.columns)
     tt_cols = array(tooltip_cols) if tooltip_cols is not None else []
 
     data_copy = data.loc[:, r_[cols, tt_cols]].copy()
-    data_copy.loc[:, cols] = data_copy.loc[:, cols].isna().replace(na_replace)
+    data_copy.loc[:, cols] = data_copy.loc[:, cols].isna()
     if sort:
         data_copy.sort_values(by=cols.tolist(), inplace=True)
+
+    if droppable:
+        non_na_mask = ~data_copy.loc[:, cols].values
+        na_rows_mask = data_copy.loc[:, cols].any(axis=1).values[:, None]
+        droppable_mask = non_na_mask & na_rows_mask
+        data_copy.loc[:, cols] = data_copy.loc[:, cols].astype(int)
+        data_copy.loc[:, cols] = data_copy.loc[:, cols]\
+            .mask(droppable_mask, other=2)
+    else:
+        data_copy.loc[:, cols] = data_copy.loc[:, cols].astype(int)
+
+    data_copy.loc[:, cols] = data_copy.loc[:, cols].replace(
+        dict(zip([0, 1, 2], names)))
+
     data_copy[ylabel] = arange(data.shape[0])
     data_copy = data_copy.melt(
         id_vars=r_[[ylabel], tt_cols],
@@ -284,6 +342,10 @@ def plot_heatmap(
     x_kws.update({'shorthand': xlabel, 'type': 'nominal'})
     y_kws.update({'shorthand': ylabel, 'type': 'ordinal'})
     color_kws.update({'shorthand': zlabel, 'type': 'nominal'})
+    color_kws.setdefault('scale', Scale(
+        domain=names[0:2] if not droppable else names,
+        range=["green", "red", "orange"]
+    ))
 
     chart = Chart(data_copy, **chart_kws)\
         .mark_rect(**rect_kws)\
@@ -295,3 +357,77 @@ def plot_heatmap(
         )
 
     return chart
+
+
+def plot_corr(
+        data: DataFrame,
+        columns: Optional[Union[List, ndarray, Index]] = None,
+        drop: bool = True,
+        mask_diag: bool = True,
+        annot: bool = True,
+        annot_color: str = "black",
+        font_size: int = 14,
+        opacity: float = 0.5,
+        cmap: str = "redblue",
+        corr_kws: dict = {},
+        chart_kws: dict = {},
+        x_kws: dict = {},
+        y_kws: dict = {},
+        color_kws: dict = {},
+        text_kws: dict = {}) -> Chart:
+    """Plot a correlation heatmap.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Optional[Union[List, ndarray, Index]]
+        Columns names.
+    drop : bool = True
+        Drop columns without NAs.
+    mask_diag : bool = True
+        Mask diagonal on heatmap.
+    corr_kws : dict, optional
+        Keyword arguments passed to ``corr()`` method of DataFrame.
+    heat_kws : dict, optional
+        Keyword arguments passed to ``heatmap()`` method of ``seaborn``
+        package.
+
+    Returns
+    -------
+    altair.Chart
+        Altair Chart object.
+    """
+    cols = array(columns) if columns is not None else data.columns
+
+    corr_kws.setdefault('method', 'spearman')
+    data_corr = correlate(data, columns=cols, **corr_kws)
+    if mask_diag:
+        fill_diagonal(data_corr.values, nan)
+    data_corr_melt = data_corr.reset_index(drop=False).melt(id_vars=['index'])
+
+    chart_kws.update({'data': data_corr_melt})
+    chart_kws.setdefault({'height': 300, 'width': 300})
+    x_kws.setdefault('shorthand', 'variable')
+    x_kws.setdefault('title', '')
+    y_kws.setdefault('shorthand', 'index')
+    y_kws.setdefault('title', '')
+
+    color_kws.setdefault('shorthand', 'value:Q')
+    color_kws.setdefault('title', 'Correlation')
+    color_kws.setdefault(
+        'scale', Scale(scheme='redblue', domain=[-1, 1], reverse=True))
+
+    text_kws.setdefault('shorthand', 'value:Q')
+    text_kws.setdefault('format', '.1f')
+
+    base = Chart(**chart_kws).encode(x=X(**x_kws), y=Y(**y_kws))
+    heatmap = base.mark_rect().encode(color=Color(**color_kws))
+    text = base.mark_text(baseline='middle').encode(text=Text(**text_kws))
+
+    # Draw the chart
+    return (heatmap + text)\
+        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
+        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)\
+        .configure_text(fontSize=font_size, color=annot_color)\
+        .configure_rect(opacity=opacity)

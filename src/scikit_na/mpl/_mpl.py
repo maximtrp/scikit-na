@@ -173,7 +173,7 @@ def plot_heatmap(
         Sort DataFrame by selected columns.
     cmap : Optional[Union[List, ndarray]], optional
         Heatmap and legend colormap: non-missing values, droppable values,
-        NA values, correspondingly.
+        NA values, correspondingly. Passed to :py:meth:`seaborn.heatmap()` method.
     names : Optional[Union[List, ndarray]], optional
         Legend labels: non-missing values, droppable values,
         NA values, correspondingly.

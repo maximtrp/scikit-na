@@ -49,10 +49,11 @@ def report(
         data: DataFrame,
         columns: Optional[Union[List, ndarray, Index]] = None,
         layout: widgets.Layout = None,
-        corr_kwargs: dict = {},
-        heat_kwargs: dict = {}):
+        corr_kws: dict = {},
+        heat_kws: dict = {}):
 
     from IPython.display import display
+    cols = array(columns) if columns is not None else array(data.columns)
 
     layout = widgets.Layout(
         grid_template_columns='1fr 1fr',
@@ -63,41 +64,55 @@ def report(
     # Table with per column stats
     stats_table = widgets.Output()
     stats_table.append_display_data(
-        describe(data, columns=columns, per_column=True))
-    stats_header = widgets.HTML('<b>NA statistics (per column)</b>')
-    stats_table_box = widgets.VBox(
-        [stats_header, stats_table], layout={'align_items': 'center'})
+        describe(data, columns=cols, per_column=True))
+    stats_table_accordion = widgets.Accordion(children=[stats_table])
+    stats_table_accordion.set_title(0, 'NA statistics (per column)')
+    stats_table_accordion.selected_index = 0
 
     # Columns selection
     def _on_col_select(names):
         stats_table.clear_output(wait=False)
+        total_stats_table.clear_output(wait=False)
         with stats_table:
-            display(data.loc[:, names['new']])
-    select = widgets.SelectMultiple(options=columns)
-    select.observe(_on_col_select, names='value')
-    select_header = widgets.HTML('<b>Select columns to display statistics</b>')
-    select_box = widgets.VBox(
-        [select_header, select], layout={'align_items': 'center'})
+            display(
+                describe(data, columns=array(names['new']), per_column=True))
+        with total_stats_table:
+            display(
+                describe(data, columns=array(names['new']), per_column=False))
+    select_cols = widgets.SelectMultiple(options=cols, rows=4)
+    select_cols.observe(_on_col_select, names='value')
+    select_accordion = widgets.Accordion(children=[select_cols])
+    select_accordion.set_title(0, 'Select columns to describe')
+    select_accordion.selected_index = 0
 
     # Table with total stats
-    total_stats_header = widgets.HTML('<b>NA statistics (in total)</b>')
     total_stats_table = widgets.Output()
     total_stats_table.append_display_data(
-        describe(data, columns=columns, per_column=True))
-    total_stats_box = widgets.VBox(
-        [total_stats_header, total_stats_table],
-        layout={'align_items': 'center'})
+        describe(data, columns=cols, per_column=False))
+    total_stats_accordion = widgets.Accordion(children=[total_stats_table])
+    total_stats_accordion.set_title(0, 'NA statistics (in total)')
 
     # Finalizing stats tab
-    stats_tab = widgets.GridBox(
-        [stats_table_box, select_box, total_stats_box], layout=layout)
+    stats_tab = widgets.VBox(
+        [select_accordion, stats_table_accordion, total_stats_accordion])
 
     # CORRELATION TAB
+    # Columns selection
+    def _on_corr_col_select(names):
+        # stats_table.clear_output(wait=False)
+        # total_stats_table.clear_output(wait=False)
+        # with stats_table:
+        #     display(describe(data, columns=names['new'], per_column=True))
+        pass
+
+    corr_select_cols = widgets.SelectMultiple(options=cols, rows=4)
+    corr_select_cols.observe(_on_corr_col_select, names='value')
+
     # Correlations heatmap
     corr_image_svg = BytesIO()
     ax_corr = plot_corr(
-        data, columns=columns,
-        orr_kwargs=corr_kwargs, heat_kwargs=heat_kwargs)
+        data, columns=cols,
+        corr_kws=corr_kws, heat_kws=heat_kws)
     ax_corr.figure.tight_layout()
     ax_corr.figure.savefig(corr_image_svg, format='png', dpi=300)
     close(ax_corr.figure)
@@ -118,11 +133,11 @@ def report(
         [dist_image_header, corr_image], grid_row='span 4')
 
     na_col_header = widgets.HTML('<b>Column with NA values</b>')
-    na_col_select = widgets.Select(options=columns)
+    na_col_select = widgets.Select(options=cols)
 
     dist_col_header = widgets.HTML(
         '<b>Column to explore distributions of values:</b>')
-    dist_col_select = widgets.Select(options=columns)
+    dist_col_select = widgets.Select(options=cols)
 
     selects_box = widgets.GridBox(
         [na_col_header, na_col_select, dist_col_header, dist_col_select])

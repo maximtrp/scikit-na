@@ -78,7 +78,7 @@ def describe(
             index=cols,
             name='Rows left after dropna()')
         rows_perc_after_dropna = (rows_after_dropna / data_copy.shape[0] * 100)\
-            .rename('Rows % left after dropna()')
+            .rename('Rows left after dropna(), %')
         na_df = concat((
             na_abs_count,
             na_percentage,
@@ -91,17 +91,19 @@ def describe(
     else:
         rows_after_dropna = _get_rows_after_dropna(data_copy.loc[:, cols])
         na_percentage_total = na_total / data_copy.shape[0] / data_copy.shape[1] * 100
-
+        total_cells = data_copy.shape[0] * data_copy.shape[1]
         na_df = DataFrame({
             'Total columns': data_copy.shape[1],
             'Total rows': data_copy.shape[0],
             'Rows with NA': data_copy.shape[0] - rows_after_dropna,
             'Rows without NA': rows_after_dropna,
-            'Total cells': data_copy.shape[0] * data_copy.shape[1],
+            'Total cells': total_cells,
             'Cells with NA': na_total,
             'Cells with NA, %': na_percentage_total,
             'Cells with non-missing data':
-                data_copy.shape[0] * data_copy.shape[1] - na_total},
+                total_cells - na_total,
+            'Cells with non-missing data, %':
+                (total_cells - na_total) / total_cells * 100},
             index=['dataset']
         ).T
 
@@ -131,7 +133,10 @@ def correlate(
     """
     cols = array(columns) if columns is not None else data.columns
     kwargs.setdefault('method', 'spearman')
-    cols_with_na = data.isna().sum(axis=0).replace({0: nan})\
-        .dropna().index.values
-    _cols = set(cols).intersection(cols_with_na)
+    if drop:
+        cols_with_na = data.isna().sum(axis=0).replace({0: nan})\
+            .dropna().index.values
+        _cols = set(cols).intersection(cols_with_na)
+    else:
+        _cols = set(cols)
     return data.loc[:, _cols].isna().corr(**kwargs)
