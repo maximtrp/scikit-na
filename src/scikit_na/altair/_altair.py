@@ -1,4 +1,5 @@
-__all__ = ['plot_dist', 'plot_scatter', 'plot_stairs', 'plot_heatmap']
+__all__ = [
+    'plot_dist', 'plot_corr', 'plot_scatter', 'plot_stairs', 'plot_heatmap']
 from altair import (
     Chart, Color, condition, data_transformers, selection_multi,
     Scale, Text, value, X, Y)
@@ -19,6 +20,7 @@ def plot_dist(
         kind: str = "hist",
         step: bool = False,
         norm: bool = True,
+        font_size: int = 14,
         xlabel: str = None,
         ylabel: str = None,
         chart_kws: dict = {},
@@ -137,7 +139,9 @@ def plot_dist(
         tooltip=['count()']
     ).add_selection(selection)
 
-    return chart
+    return chart\
+        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
+        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_scatter(
@@ -147,6 +151,7 @@ def plot_scatter(
         col_na: str,
         na_label: str = None,
         na_replace: dict = {True: 'NA', False: 'Filled'},
+        font_size: int = 14,
         xlabel: str = None,
         ylabel: str = None,
         circle_kws: dict = {},
@@ -170,7 +175,9 @@ def plot_scatter(
         opacity=condition(selection, value(circle_kws['opacity']), value(0))
     ).add_selection(selection)
 
-    return points
+    return points\
+        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
+        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_stairs(
@@ -180,6 +187,7 @@ def plot_stairs(
         ylabel: str = 'Instances',
         tooltip_label: str = 'Size difference',
         dataset_label: str = '(Whole dataset)',
+        font_size: int = 14,
         area_kws: dict = {},
         chart_kws: dict = {},
         x_kws: dict = {},
@@ -251,7 +259,9 @@ def plot_stairs(
             y=Y(**y_kws),
             tooltip=[xlabel, ylabel, tooltip_label]
         )
-    return chart
+    return chart\
+        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
+        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_heatmap(
@@ -261,6 +271,7 @@ def plot_heatmap(
         names: list = ['Filled', 'NA', 'Droppable'],
         sort: bool = True,
         droppable: bool = True,
+        font_size: int = 14,
         xlabel: str = 'Columns',
         ylabel: str = 'Rows',
         zlabel: str = 'Values',
@@ -356,7 +367,9 @@ def plot_heatmap(
             tooltip=tt_cols.tolist()
         )
 
-    return chart
+    return chart\
+        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
+        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_corr(
@@ -364,8 +377,11 @@ def plot_corr(
         columns: Optional[Union[List, ndarray, Index]] = None,
         drop: bool = True,
         mask_diag: bool = True,
+        height: int = 400,
+        width: int = 400,
         annot: bool = True,
         annot_color: str = "black",
+        round_sgn: int = 2,
         font_size: int = 14,
         opacity: float = 0.5,
         cmap: str = "redblue",
@@ -407,7 +423,8 @@ def plot_corr(
     data_corr_melt = data_corr.reset_index(drop=False).melt(id_vars=['index'])
 
     chart_kws.update({'data': data_corr_melt})
-    chart_kws.setdefault({'height': 300, 'width': 300})
+    chart_kws.update({'height': height})
+    chart_kws.update({'width': width})
     x_kws.setdefault('shorthand', 'variable')
     x_kws.setdefault('title', '')
     y_kws.setdefault('shorthand', 'index')
@@ -419,7 +436,7 @@ def plot_corr(
         'scale', Scale(scheme='redblue', domain=[-1, 1], reverse=True))
 
     text_kws.setdefault('shorthand', 'value:Q')
-    text_kws.setdefault('format', '.1f')
+    text_kws.setdefault('format', f'.{round_sgn}f')
 
     base = Chart(**chart_kws).encode(x=X(**x_kws), y=Y(**y_kws))
     heatmap = base.mark_rect().encode(color=Color(**color_kws))
