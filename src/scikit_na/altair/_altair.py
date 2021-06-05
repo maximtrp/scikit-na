@@ -1,13 +1,13 @@
 __all__ = [
     'plot_dist', 'plot_corr', 'plot_scatter', 'plot_stairs', 'plot_heatmap']
-from .._stats import _get_rows_after_cum_dropna, correlate
+from .._stats import _get_rows_after_cum_dropna, _select_cols, correlate
 from altair import (
     Chart, Color, condition, data_transformers, selection_multi,
     Scale, Text, value, X, Y)
 from pandas import DataFrame, Index
 from numpy import array, arange, ndarray, argmin, r_, nan, fill_diagonal
 from functools import partial
-from typing import Union, Optional, List
+from typing import Union, Optional, List, Iterable
 from ipywidgets import widgets, interact
 # Allow plotting mote than 5000 rows
 data_transformers.disable_max_rows()
@@ -18,7 +18,8 @@ def plot_dist(
         col: str,
         col_na: str,
         na_label: str = None,
-        na_replace: dict = {True: 'NA', False: 'Filled'},
+        na_replace: dict = {
+            True: 'NA', False: 'Filled'},
         kind: str = "hist",
         step: bool = False,
         norm: bool = True,
@@ -76,11 +77,11 @@ def plot_dist(
         Keyword arguments passed to
         :py:meth:`altair.Chart.transform_density()`.
     x_kws : dict, optional
-        Keyword arguments passed to py:meth:`altair.X()`.
+        Keyword arguments passed to :py:meth:`altair.X()`.
     y_kws : dict, optional
-        Keyword arguments passed to py:meth:`altair.Y()`.
+        Keyword arguments passed to :py:meth:`altair.Y()`.
     color_kws : dict, optional
-        Keyword arguments passed to py:meth:`altair.Color()`.
+        Keyword arguments passed to :py:meth:`altair.Color()`.
 
     Returns
     -------
@@ -222,20 +223,20 @@ def plot_stairs(
     dataset_label : str, optional
         Label for the whole dataset (before dropping any NAs).
     area_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Chart.mark_area` method.
+        Keyword arguments passed to :py:meth:`altair.Chart.mark_area()` method.
     chart_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Chart` class.
+        Keyword arguments passed to :py:meth:`altair.Chart()` class.
     x_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.X` class.
+        Keyword arguments passed to :py:meth:`altair.X()` class.
     y_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Y` class.
+        Keyword arguments passed to :py:meth:`altair.Y()` class.
 
     Returns
     -------
     altair.Chart
         Chart object.
     """
-    cols = array(columns if columns is not None else data.columns).tolist()
+    cols = _select_cols(data, columns).tolist()
     stairs_values = []
     stairs_labels = []
 
@@ -275,8 +276,8 @@ def plot_stairs(
 
 def plot_heatmap(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
-        tooltip_cols: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Iterable] = None,
+        tooltip_cols: Optional[Iterable] = None,
         names: list = ['Filled', 'NA', 'Droppable'],
         sort: bool = True,
         droppable: bool = True,
@@ -296,9 +297,9 @@ def plot_heatmap(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Union[List, ndarray, Index]], optional
+    columns : Optional[Iterable], optional
         Columns that are to be displayed on a plot.
-    tooltip_cols : Optional[Union[List, ndarray, Index]], optional
+    tooltip_cols : Optional[Iterable], optional
         Columns to be used in tooltips.
     names : list, optional
         Values labels passed as a list.
@@ -308,7 +309,8 @@ def plot_heatmap(
     sort : bool, optional
         Sort values as NA/non-NA.
     droppable : bool, optional
-        Show values to be dropped by `dropna()` method.
+        Show values to be dropped by :py:meth:`pandas.DataFrame.dropna()`
+        method.
     xlabel : str, optional
         X axis label.
     ylabel : str, optional
@@ -316,23 +318,23 @@ def plot_heatmap(
     zlabel : str, optional
         Groups label (shown as a legend title).
     chart_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Chart` class.
+        Keyword arguments passed to :py:meth:`altair.Chart()` class.
     rect_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Chart.mark_rect` method.
+        Keyword arguments passed to :py:meth:`altair.Chart.mark_rect()` method.
     x_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.X` class.
+        Keyword arguments passed to :py:meth:`altair.X()` class.
     y_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Y` class.
+        Keyword arguments passed to :py:meth:`altair.Y()` class.
     color_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Color` class.
+        Keyword arguments passed to :py:meth:`altair.Color()` class.
 
     Returns
     -------
     altair.Chart
         Altair Chart object.
     """
-    cols = array(columns if columns is not None else data.columns)
-    tt_cols = array(tooltip_cols if tooltip_cols is not None else [])
+    cols = _select_cols(data, columns)
+    tt_cols = _select_cols(data, tooltip_cols, [])
 
     data_copy = data.loc[:, r_[cols, tt_cols]].copy()
     data_copy.loc[:, cols] = data_copy.loc[:, cols].isna()
@@ -383,11 +385,9 @@ def plot_heatmap(
 
 def plot_corr(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Iterable] = None,
         drop: bool = True,
         mask_diag: bool = True,
-        height: int = 400,
-        width: int = 400,
         annot: bool = True,
         annot_color: str = "black",
         round_sgn: int = 2,
@@ -406,24 +406,23 @@ def plot_corr(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Union[List, ndarray, Index]]
+    columns : Optional[Iterable]
         Columns names.
     drop : bool = True
         Drop columns without NAs.
     mask_diag : bool = True
         Mask diagonal on heatmap.
     corr_kws : dict, optional
-        Keyword arguments passed to ``corr()`` method of DataFrame.
+        Keyword arguments passed to :py:meth:`pandas.DataFrame.corr()` method.
     heat_kws : dict, optional
-        Keyword arguments passed to ``heatmap()`` method of ``seaborn``
-        package.
+        Keyword arguments passed to :py:meth:`seaborn.heatmap()` method.
 
     Returns
     -------
     altair.Chart
         Altair Chart object.
     """
-    cols = array(columns) if columns is not None else data.columns
+    cols = _select_cols(data, columns)
 
     corr_kws.setdefault('method', 'spearman')
     data_corr = correlate(data, columns=cols, **corr_kws)
@@ -432,8 +431,6 @@ def plot_corr(
     data_corr_melt = data_corr.reset_index(drop=False).melt(id_vars=['index'])
 
     chart_kws.update({'data': data_corr_melt})
-    chart_kws.update({'height': height})
-    chart_kws.update({'width': width})
     x_kws.setdefault('shorthand', 'variable')
     x_kws.setdefault('title', '')
     y_kws.setdefault('shorthand', 'index')
@@ -478,7 +475,7 @@ def view_dist(
     _InteractFactory
         Interactive widget.
     """
-    cols = array(columns) if columns is not None else data.columns
+    cols = _select_cols(data, columns)
     na_cols = data.isna().sum(axis=0)\
         .rename('na_num')\
         .to_frame()\

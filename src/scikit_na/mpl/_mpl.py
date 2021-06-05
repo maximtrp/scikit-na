@@ -1,11 +1,11 @@
 __all__ = [
     'plot_corr', 'plot_stats', 'plot_heatmap', 'plot_hist', 'plot_kde']
-from .._stats import correlate
+from .._stats import correlate, _select_cols
 from pandas import DataFrame
 from pandas.core.indexes.base import Index
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Iterable
 from numpy import (
-    array, ndarray, fill_diagonal, nan)
+    ndarray, fill_diagonal, nan)
 from seaborn import heatmap, histplot, kdeplot, barplot, diverging_palette
 from matplotlib.axes import SubplotBase
 from matplotlib.patches import Patch
@@ -28,16 +28,16 @@ def plot_corr(
     mask_diag : bool = True
         Mask diagonal on heatmap.
     corr_kws : dict, optional
-        Keyword arguments passed to ``corr()`` method of DataFrame.
+        Keyword arguments passed to :py:meth:`pandas.DataFrame.corr()`.
     heat_kws : dict, optional
-        Keyword arguments passed to ``heatmap()`` method of ``seaborn``
-        package.
+        Keyword arguments passed to :py:meth:`pandas.DataFrame.heatmap()`.
+
     Returns
     -------
     matplotlib.axes._subplots.AxesSubplot
         Heatmap AxesSubplot object.
     """
-    cols = array(columns) if columns is not None else data.columns
+    cols = _select_cols(data, columns)
 
     corr_kws.setdefault('method', 'spearman')
     data_corr = correlate(data, columns=cols, **corr_kws)
@@ -69,7 +69,7 @@ def plot_stats(
     idxint : int = None, optional
         Index integer labels passed to :py:meth:`pandas.DataFrame.iloc` method.
     kwargs : dict, optional
-        Keyword arguments passed to :py:meth:`seaborn.barplot` method.
+        Keyword arguments passed to :py:meth:`seaborn.barplot()` method.
 
     Returns
     -------
@@ -149,7 +149,7 @@ def plot_stats(
 
 def plot_heatmap(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Iterable] = None,
         droppable: bool = True,
         sort: bool = True,
         cmap: Optional[Union[List, ndarray]] = ['green', 'orange', 'red'],
@@ -165,15 +165,17 @@ def plot_heatmap(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Union[List, ndarray, Index]], optional
+    columns : Optional[Iterable], optional
         Columns names.
     droppable : bool, optional
-        Show values to be dropped by :py:meth:`pandas.DataFrame.dropna` method.
+        Show values to be dropped by :py:meth:`pandas.DataFrame.dropna()`
+        method.
     sort : bool, optional
         Sort DataFrame by selected columns.
     cmap : Optional[Union[List, ndarray]], optional
         Heatmap and legend colormap: non-missing values, droppable values,
-        NA values, correspondingly. Passed to :py:meth:`seaborn.heatmap()` method.
+        NA values, correspondingly. Passed to :py:meth:`seaborn.heatmap()`
+        method.
     names : Optional[Union[List, ndarray]], optional
         Legend labels: non-missing values, droppable values,
         NA values, correspondingly.
@@ -183,7 +185,7 @@ def plot_heatmap(
         Show X axis.
     legend_kws : dict, optional
         Keyword arguments passed to
-        :py:meth:`matplotlib.axes._subplots.AxesSubplot` method.
+        :py:meth:`matplotlib.axes._subplots.AxesSubplot()` method.
     sb_kws : dict, optional
         Keyword arguments passed to
         :py:meth:`seaborn.heatmap` method.
@@ -193,8 +195,7 @@ def plot_heatmap(
     matplotlib.axes._subplots.AxesSubplot
         AxesSubplot object.
     """
-    cols = array(columns).tolist()\
-        if columns is not None else data.columns.tolist()
+    cols = _select_cols(data, columns).tolist()
     data_na = data.loc[:, cols].isna().copy()
     if sort:
         data_na.sort_values(by=cols, inplace=True)
@@ -389,12 +390,12 @@ def plot_kde(
     common_norm : bool, optional
         Use common norm.
     kde_kws : dict, optional
-        Keyword arguments passed to :py:meth:`seaborn.kdeplot`.
+        Keyword arguments passed to :py:meth:`seaborn.kdeplot()`.
 
     Returns
     -------
     SubplotBase
-        AxesSubplot returned by :py:meth:`seaborn.kdeplot`.
+        AxesSubplot returned by :py:meth:`seaborn.kdeplot()`.
     """
     data_copy = data.copy()
     col_na_name = col_na_fmt.format(col_na)

@@ -1,9 +1,20 @@
-__all__ = ['describe', 'correlate', 'model', 'test_hypothesis']
+__all__ = [
+    'describe', 'correlate', 'model', 'test_hypothesis']
 from pandas import concat, DataFrame, Series, Index
 from typing import Union, Optional, List, Dict, Iterable
 from numpy import array, ndarray, nan, r_, setdiff1d
 from functools import partial
 from statsmodels.discrete.discrete_model import Logit
+
+
+def _select_cols(
+        data: DataFrame,
+        columns: Iterable = None,
+        second_var: list = None) -> ndarray:
+    return array(
+        [col for col in columns]
+        if columns is not None
+        else (data.columns if second_var is None else second_var))
 
 
 def _get_unique_na(data, cols, col) -> int:
@@ -36,7 +47,7 @@ def _get_total_na_count(data: DataFrame, cols) -> int:
 
 def describe(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Iterable] = None,
         per_column: bool = True,
         round_sgn: int = 2) -> DataFrame:
     """Summary statistics on NA values.
@@ -45,10 +56,7 @@ def describe(
     ----------
     data : DataFrame
         Data object.
-    columns : Optional[Union[
-            List,
-            numpy.ndarray,
-            pandas.core.indexes.base.Index]] = None
+    columns : Optional[Iterable]
         Columns or indices to observe.
     per_column : bool = True
         Show stats per each selected column.
@@ -58,7 +66,7 @@ def describe(
     DataFrame
         NA descriptive statistics.
     """
-    cols = array(columns) if columns is not None else data.columns
+    cols = _select_cols(data, columns)
     data_copy = data.loc[:, cols].copy()
     na_total = _get_total_na_count(data_copy, cols)
 
@@ -81,7 +89,8 @@ def describe(
             list(map(get_rows_after_dropna, cols)),
             index=cols,
             name='Rows left after dropna()')
-        rows_perc_after_dropna = (rows_after_dropna / data_copy.shape[0] * 100)\
+        rows_perc_after_dropna = (
+            rows_after_dropna / data_copy.shape[0] * 100)\
             .rename('Rows left after dropna(), %')
         na_df = concat((
             na_abs_count,
@@ -94,7 +103,8 @@ def describe(
         na_df = na_df.T
     else:
         rows_after_dropna = _get_rows_after_dropna(data_copy.loc[:, cols])
-        na_percentage_total = na_total / data_copy.shape[0] / data_copy.shape[1] * 100
+        na_percentage_total = na_total / data_copy.shape[0]\
+            / data_copy.shape[1] * 100
         total_cells = data_copy.shape[0] * data_copy.shape[1]
         na_df = DataFrame({
             'Total columns': data_copy.shape[1],
@@ -119,7 +129,7 @@ def describe(
 
 def correlate(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Iterable] = None,
         drop: bool = True,
         **kwargs) -> DataFrame:
     """Calculate correlations between columns in terms of NA values.
@@ -140,7 +150,7 @@ def correlate(
     DataFrame
         Correlation values.
     """
-    cols = array(columns) if columns is not None else data.columns
+    cols = _select_cols(data, columns)
     kwargs.setdefault('method', 'spearman')
     if drop:
         cols_with_na = data.isna().sum(axis=0).replace({0: nan})\
@@ -192,8 +202,8 @@ def model(
     ...     columns=['age', 'height', 'weight'])
     >>> model.summary()
     """
-    cols = array(columns)\
-        if columns is not None else data.columns.to_numpy(copy=True)
+    cols = _select_cols(data, columns)
+    cols = setdiff1d(cols, [col_na])
     data_copy = data.loc[:, cols.tolist() + [col_na]].copy()
 
     if intercept:
@@ -217,20 +227,23 @@ def test_hypothesis(
         columns: Optional[Union[Iterable[str], Dict[str, callable]]] = None,
         dropna: bool = True
         ) -> Dict[str, object]:
-    """[summary]
+    """Test a statistical hypothesis. Typically, can be used to compare
+    two samples grouped by NA/non-NA values in another column.
 
     Parameters
     ----------
     data : DataFrame
-        [description]
+        Input data.
     col_na : str
-        [description]
+        Column to group values by. :py:meth:`pandas.Series.isna()` method
+        is applied before grouping.
     columns : Optional[Union[Iterable[str], Dict[str, callable]]], optional
-        [description], by default None
+        Columns to test hypotheses on.
     test_fn : callable, optional
         Function to test hypothesis on NA/non-NA data.
         Must be a two-sample test function that accepts two arrays
-        and (optionally) keyword arguments such as scipy.stats.mannwhitneyu
+        and (optionally) keyword arguments such as
+        :py:meth:`scipy.stats.mannwhitneyu`.
     test_kws : dict, optional
         Keyword arguments passed to `test_fn` function.
 
@@ -242,6 +255,8 @@ def test_hypothesis(
     Example
     -------
     >>> import scikit_na as na
+    >>> import pandas as pd
+    >>> data = pd.read_csv('some_dataset.csv')
     >>> # Simple example
     >>> na.test_hypothesis(
     ...     data,
@@ -252,7 +267,6 @@ def test_hypothesis(
     >>> # Example with `columns` as a dictionary of column => function pairs
     >>> from functools import partial
     >>> import scipy.stats as st
-    >>> import pandas as pd
     >>> # Passing keyword arguments to functions
     >>> kstest_mod = partial(st.kstest, N=100)
     >>> mannwhitney_mod = partial(st.mannwhitneyu, use_continuity=False)

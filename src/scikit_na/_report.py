@@ -1,6 +1,6 @@
 __all__ = ['report']
 from .altair import plot_corr, plot_dist
-from ._stats import describe
+from ._stats import describe, _select_cols
 from pandas import DataFrame, Index
 from ipywidgets import widgets
 from typing import Optional, Union, List
@@ -17,7 +17,7 @@ def report(
         dist_kws: dict = {}):
 
     from IPython.display import display
-    cols = array(columns) if columns is not None else array(data.columns)
+    cols = _select_cols(data, columns).tolist()
     na_cols = data.loc[:, cols].isna()\
         .sum(axis=0)\
         .rename('na_num')\
