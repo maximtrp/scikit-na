@@ -1,6 +1,6 @@
 __all__ = [
     'plot_corr', 'plot_stats', 'plot_heatmap', 'plot_hist', 'plot_kde']
-from .._descr import correlate
+from .._stats import correlate
 from pandas import DataFrame
 from pandas.core.indexes.base import Index
 from typing import Optional, Union, List

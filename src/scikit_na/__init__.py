@@ -1,6 +1,5 @@
-from ._descr import *
+from ._stats import *
 from ._report import *
-from ._model import *
 from .mpl import *
 from .altair import *
 

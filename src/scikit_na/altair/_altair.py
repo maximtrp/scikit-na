@@ -1,13 +1,14 @@
 __all__ = [
     'plot_dist', 'plot_corr', 'plot_scatter', 'plot_stairs', 'plot_heatmap']
+from .._stats import _get_rows_after_cum_dropna, correlate
 from altair import (
     Chart, Color, condition, data_transformers, selection_multi,
     Scale, Text, value, X, Y)
 from pandas import DataFrame, Index
 from numpy import array, arange, ndarray, argmin, r_, nan, fill_diagonal
 from functools import partial
-from .._descr import _get_rows_after_cum_dropna, correlate
 from typing import Union, Optional, List
+# Allow plotting mote than 5000 rows
 data_transformers.disable_max_rows()
 
 
@@ -136,7 +137,14 @@ def plot_dist(
         x=X(col, **x_kws),
         y=Y(y_shorthand, **y_kws),
         color=Color(col_na, **color_kws),
-        tooltip=['count()']
+        tooltip=['count()'],
+        opacity=condition(
+            selection,
+            value(
+                markbar_kws['opacity']
+                if kind == 'hist'
+                else markarea_kws['opacity']),
+            value(0))
     ).add_selection(selection)
 
     return chart\

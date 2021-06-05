@@ -1,6 +1,6 @@
 __all__ = ['report', 'view_dist']
 from .altair import plot_corr, plot_dist
-from ._descr import describe
+from ._stats import describe
 from pandas import DataFrame, Index
 from ipywidgets import widgets, interact
 from typing import Optional, Union, List
