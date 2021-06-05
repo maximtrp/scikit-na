@@ -1,45 +1,10 @@
-__all__ = ['report', 'view_dist']
+__all__ = ['report']
 from .altair import plot_corr, plot_dist
 from ._stats import describe
 from pandas import DataFrame, Index
-from ipywidgets import widgets, interact
+from ipywidgets import widgets
 from typing import Optional, Union, List
 from numpy import array, ndarray, random
-
-
-def view_dist(
-        data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
-        **kwargs):
-    """Interactively observe distribution of values in a selected column
-    grouped by NA/non-NA values in another column.
-
-    Parameters
-    ----------
-    data : DataFrame
-        Input data.
-    columns : Union[list, ndarray, Index] = None
-        Column names.
-
-    Returns
-    -------
-    _InteractFactory
-        Interactive widget.
-    """
-    cols = array(columns) if columns is not None else data.columns
-    na_cols = data.isna().sum(axis=0)\
-        .rename('na_num')\
-        .to_frame()\
-        .query('na_num > 0')\
-        .index.values
-
-    return interact(
-        lambda Column, NA:
-            plot_dist(data, col=Column, col_na=NA, **kwargs)
-            if Column != NA
-            else widgets.HTML(
-                '<em style="color: red">Note: select different columns</em>'),
-        Column=cols, NA=na_cols)
 
 
 def report(

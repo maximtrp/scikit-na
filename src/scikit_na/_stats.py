@@ -37,7 +37,8 @@ def _get_total_na_count(data: DataFrame, cols) -> int:
 def describe(
         data: DataFrame,
         columns: Optional[Union[List, ndarray, Index]] = None,
-        per_column: bool = True) -> DataFrame:
+        per_column: bool = True,
+        round_sgn: int = 2) -> DataFrame:
     """Summary statistics on NA values.
 
     Parameters
@@ -109,6 +110,9 @@ def describe(
                 (total_cells - na_total) / total_cells * 100},
             index=['dataset']
         ).T
+
+    if round_sgn:
+        na_df = na_df.round(round_sgn)
 
     return na_df
 

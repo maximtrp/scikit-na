@@ -8,6 +8,7 @@ from pandas import DataFrame, Index
 from numpy import array, arange, ndarray, argmin, r_, nan, fill_diagonal
 from functools import partial
 from typing import Union, Optional, List
+from ipywidgets import widgets, interact
 # Allow plotting mote than 5000 rows
 data_transformers.disable_max_rows()
 
@@ -274,8 +275,8 @@ def plot_stairs(
 
 def plot_heatmap(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = [],
-        tooltip_cols: Optional[Union[List, ndarray, Index]] = [],
+        columns: Optional[Union[List, ndarray, Index]] = None,
+        tooltip_cols: Optional[Union[List, ndarray, Index]] = None,
         names: list = ['Filled', 'NA', 'Droppable'],
         sort: bool = True,
         droppable: bool = True,
@@ -331,7 +332,7 @@ def plot_heatmap(
         Altair Chart object.
     """
     cols = array(columns if columns is not None else data.columns)
-    tt_cols = array(tooltip_cols) if tooltip_cols is not None else []
+    tt_cols = array(tooltip_cols if tooltip_cols is not None else [])
 
     data_copy = data.loc[:, r_[cols, tt_cols]].copy()
     data_copy.loc[:, cols] = data_copy.loc[:, cols].isna()
@@ -456,3 +457,38 @@ def plot_corr(
         .configure_legend(labelFontSize=font_size, titleFontSize=font_size)\
         .configure_text(fontSize=font_size, color=annot_color)\
         .configure_rect(opacity=opacity)
+
+
+def view_dist(
+        data: DataFrame,
+        columns: Optional[Union[List, ndarray, Index]] = None,
+        **kwargs):
+    """Interactively observe distribution of values in a selected column
+    grouped by NA/non-NA values in another column.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Union[list, ndarray, Index] = None
+        Column names.
+
+    Returns
+    -------
+    _InteractFactory
+        Interactive widget.
+    """
+    cols = array(columns) if columns is not None else data.columns
+    na_cols = data.isna().sum(axis=0)\
+        .rename('na_num')\
+        .to_frame()\
+        .query('na_num > 0')\
+        .index.values
+
+    return interact(
+        lambda Column, NA:
+            plot_dist(data, col=Column, col_na=NA, **kwargs)
+            if Column != NA
+            else widgets.HTML(
+                '<em style="color: red">Note: select different columns</em>'),
+        Column=cols, NA=na_cols)
