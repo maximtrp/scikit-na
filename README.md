@@ -2,6 +2,8 @@
 
 **scikit-na** is a Python package for missing data (NA) analysis. The package includes many functions for statistical analysis, modeling, and data visualization. The latter is done using two packages — [matplotlib](https://matplotlib.org/) and [Altair](https://altair-viz.github.io/).
 
+![Visualizations](img/titanic_vis.png)
+
 ## Features
 
 * Interactive report (based on [ipywidgets](ipywidgets.readthedocs.io/))
