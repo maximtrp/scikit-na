@@ -9,6 +9,7 @@ from numpy import array, arange, ndarray, argmin, r_, nan, fill_diagonal
 from functools import partial
 from typing import Union, Optional, List, Iterable
 from ipywidgets import widgets, interact
+from numbers import Integral
 # Allow plotting mote than 5000 rows
 data_transformers.disable_max_rows()
 
@@ -21,6 +22,8 @@ def plot_dist(
         na_replace: dict = {
             True: 'NA', False: 'Filled'},
         kind: str = "hist",
+        heuristic: bool = True,
+        thres_uniq: int = 20,
         step: bool = False,
         norm: bool = True,
         font_size: int = 14,
@@ -102,7 +105,26 @@ def plot_dist(
     joinagg_kws.setdefault('total', 'count()')
     joinagg_kws.update({'groupby': [col_na]})
 
-    x_kws.setdefault('bin', True)
+    # Simple heuristic for choosing distplot parameters
+    if heuristic:
+        # 1) If dtype is object, do not bin anything and treat as nominal
+        if data[col].dtype == object:
+            x_kws.update({'bin': False})
+            x_kws.update({'type': 'nominal'})
+
+        # 2) Check the number of unique values
+        else:
+            few_uniques = data[col].dropna().unique().size < thres_uniq
+            integers = data[col].dropna()\
+                .apply(lambda x: not isinstance(x, Integral)).sum()
+
+            if not integers and few_uniques:
+                x_kws.update({'bin': False})
+                x_kws.update({'type': 'ordinal'})
+            else:
+                x_kws.update({'bin': True})
+                x_kws.update({'type': 'quantitative'})
+
     x_kws.update({'title': xlabel or col})
 
     y_kws.setdefault('type', 'quantitative')
@@ -115,7 +137,7 @@ def plot_dist(
     data_copy = data.loc[:, [col, col_na]].copy()
     data_copy[col_na] = data_copy.loc[:, col_na].isna().replace(na_replace)
 
-    # Chart creation routine
+    # Chart creation
     chart = Chart(data_copy)
 
     chart = chart.mark_area(**markarea_kws)\
@@ -193,7 +215,7 @@ def plot_scatter(
 def plot_stairs(
         data: DataFrame,
         columns: Optional[Union[List, ndarray, Index]] = None,
-        xlabel: str = 'Column',
+        xlabel: str = 'Columns',
         ylabel: str = 'Instances',
         tooltip_label: str = 'Size difference',
         dataset_label: str = '(Whole dataset)',

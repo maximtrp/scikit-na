@@ -1,7 +1,7 @@
 __all__ = [
-    'describe', 'correlate', 'model', 'test_hypothesis']
-from pandas import concat, DataFrame, Series, Index
-from typing import Union, Optional, List, Dict, Iterable
+    'describe', 'summary', 'correlate', 'model', 'test_hypothesis']
+from pandas import concat, DataFrame, Series, NA
+from typing import Union, Optional, Dict, Iterable
 from numpy import array, ndarray, nan, r_, setdiff1d
 from functools import partial
 from statsmodels.discrete.discrete_model import Logit
@@ -9,12 +9,33 @@ from statsmodels.discrete.discrete_model import Logit
 
 def _select_cols(
         data: DataFrame,
-        columns: Iterable = None,
+        columns: Optional[Iterable] = None,
         second_var: list = None) -> ndarray:
     return array(
         [col for col in columns]
         if columns is not None
         else (data.columns if second_var is None else second_var))
+
+
+def _get_nominal_cols(
+        data: DataFrame,
+        columns: Optional[Iterable] = None):
+    cols = _select_cols(data, columns)
+    return (data[cols].dtypes == object)\
+        .replace({False: NA})\
+        .dropna()\
+        .index.values
+
+
+def _get_numeric_cols(
+        data: DataFrame,
+        columns: Optional[Iterable] = None):
+    cols = _select_cols(data, columns)
+    return ((data[cols].dtypes == float)
+            | (data[cols].dtypes == int))\
+        .replace({False: NA})\
+        .dropna()\
+        .index.values
 
 
 def _get_unique_na(data, cols, col) -> int:
@@ -45,11 +66,11 @@ def _get_total_na_count(data: DataFrame, cols) -> int:
     return data.loc[:, cols].isna().sum().sum()
 
 
-def describe(
+def summary(
         data: DataFrame,
         columns: Optional[Iterable] = None,
         per_column: bool = True,
-        round_sgn: int = 2) -> DataFrame:
+        round_dec: int = 2) -> DataFrame:
     """Summary statistics on NA values.
 
     Parameters
@@ -58,13 +79,15 @@ def describe(
         Data object.
     columns : Optional[Iterable]
         Columns or indices to observe.
-    per_column : bool = True
+    per_column : bool = True, optional
         Show stats per each selected column.
+    round_dec: int = 2, optional
+        Number of decimals for rounding.
 
     Returns
     -------
     DataFrame
-        NA descriptive statistics.
+        Summary on NA values in the input data.
     """
     cols = _select_cols(data, columns)
     data_copy = data.loc[:, cols].copy()
@@ -121,8 +144,8 @@ def describe(
             index=['dataset']
         ).T
 
-    if round_sgn:
-        na_df = na_df.round(round_sgn)
+    if round_dec:
+        na_df = na_df.round(round_dec)
 
     return na_df
 
@@ -138,11 +161,11 @@ def correlate(
     ----------
     data : DataFrame
         Input data.
-    drop : bool = True
-        Drop columns without NA values.
     columns : Optional[List, ndarray, Index] = None
         Columns names.
-    kwargs : dict
+    drop : bool = True, optional
+        Drop columns without NA values.
+    kwargs : dict, optional
         Keyword arguments passed to :py:meth:`pandas.DataFrame.corr()` method.
 
     Returns
@@ -161,10 +184,44 @@ def correlate(
     return data.loc[:, _cols].isna().corr(**kwargs)
 
 
+def describe(
+        data: DataFrame,
+        col_na: str,
+        columns: Optional[Iterable] = None,
+        na_mapping: dict = {True: "NA", False: "Filled"}) -> DataFrame:
+    """Describe data grouped by a column with NA values.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    col_na : str
+        Column with NA values to group the other data by.
+    columns : Optional[Iterable]
+        Columns to calculate descriptive statistics on.
+    na_mapping : dict, optional
+        Dictionary with NA mappings. By default,
+        it is {True: "NA", False: "Filled"}.
+
+    Returns
+    -------
+    DataFrame
+        Descriptive statistics (mean, median, etc.).
+    """
+    cols = _select_cols(data, columns).tolist()
+
+    descr_stats = data.loc[:, set(cols).difference([col_na])]\
+        .groupby(data[col_na].isna().replace(na_mapping))\
+        .describe()\
+        .T\
+        .unstack(0)
+    return descr_stats.swaplevel(axis=1).sort_index(axis=1, level=0)
+
+
 def model(
         data: DataFrame,
         col_na: str,
-        columns: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Iterable] = None,
         intercept: bool = True,
         fit_kws: dict = {},
         logit_kws: dict = {}):
@@ -178,7 +235,7 @@ def model(
         Input data.
     col_na : str
         Column with NA values to use as a dependent variable.
-    columns : Optional[Union[List, ndarray, Index]], optional
+    columns : Optional[Iterable]
         Columns to use as independent variables.
     intercept : bool, optional
         Fit intercept.
@@ -203,17 +260,17 @@ def model(
     >>> model.summary()
     """
     cols = _select_cols(data, columns)
-    cols = setdiff1d(cols, [col_na])
-    data_copy = data.loc[:, cols.tolist() + [col_na]].copy()
+    cols_pred = setdiff1d(cols, [col_na])
+    data_copy = data.loc[:, cols_pred.tolist() + [col_na]].copy()
 
     if intercept:
         data_copy['(intercept)'] = 1.
-        cols = r_[['(intercept)'], cols]
+        cols_pred = r_[['(intercept)'], cols_pred]
 
     logit_kws.setdefault('missing', 'drop')
     logit_model = Logit(
         endog=data_copy.loc[:, col_na].isna().astype(int),
-        exog=data_copy.loc[:, cols],
+        exog=data_copy.loc[:, cols_pred],
         **logit_kws)
 
     return logit_model.fit(**fit_kws)
@@ -225,8 +282,7 @@ def test_hypothesis(
         test_fn: callable,
         test_kws: dict = {},
         columns: Optional[Union[Iterable[str], Dict[str, callable]]] = None,
-        dropna: bool = True
-        ) -> Dict[str, object]:
+        dropna: bool = True) -> Dict[str, object]:
     """Test a statistical hypothesis. Typically, can be used to compare
     two samples grouped by NA/non-NA values in another column.
 
@@ -237,7 +293,7 @@ def test_hypothesis(
     col_na : str
         Column to group values by. :py:meth:`pandas.Series.isna()` method
         is applied before grouping.
-    columns : Optional[Union[Iterable[str], Dict[str, callable]]], optional
+    columns : Optional[Union[Iterable[str], Dict[str, callable]]]
         Columns to test hypotheses on.
     test_fn : callable, optional
         Function to test hypothesis on NA/non-NA data.
@@ -246,6 +302,8 @@ def test_hypothesis(
         :py:meth:`scipy.stats.mannwhitneyu`.
     test_kws : dict, optional
         Keyword arguments passed to `test_fn` function.
+    dropna: bool = True, optional
+        Drop NA values in two samples before running a hypothesis test.
 
     Returns
     -------
