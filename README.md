@@ -1,5 +1,7 @@
 # scikit-na
 
+[![Documentation Status](https://readthedocs.org/projects/scikit-na/badge/?version=latest)](https://scikit-na.readthedocs.io/en/latest/?badge=latest)
+
 **scikit-na** is a Python package for missing data (NA) analysis. The package includes many functions for statistical analysis, modeling, and data visualization. The latter is done using two packages — [matplotlib](https://matplotlib.org/) and [Altair](https://altair-viz.github.io/).
 
 ![Visualizations](img/titanic_vis.png)
@@ -28,11 +30,13 @@ pip install git+https://github.com/maximtrp/scikit-na.git
 
 ## Example
 
-### Descriptive statistics
+We will use Titanic dataset (from Kaggle) that contains NA values in three columns: Age, Cabin, and Embarked.
+
+### Summary
 
 #### Per each column
 
-We will use Titanic dataset (from Kaggle) that contains NA values in three columns: Age, Cabin, and Embarked.
+By default, `summary()` function returns the results for each column.
 
 ```python
 import scikit_na as na
@@ -41,7 +45,7 @@ import pandas as pd
 data = pd.read_csv('titanic_dataset.csv')
 
 # Excluding three columns without NA to fit the table here
-na.describe(data, columns=data.columns.difference(['SibSp', 'Parch', 'Ticket']))
+na.summary(data, columns=data.columns.difference(['SibSp', 'Parch', 'Ticket']))
 ```
 
 |                             |    Age |   Cabin |   Embarked |   Fare |   Name |   PassengerId |   Pclass |   Sex |   Survived |
@@ -58,10 +62,10 @@ na.describe(data, columns=data.columns.difference(['SibSp', 'Parch', 'Ticket']))
 
 #### Whole dataset
 
-We can also calculate descriptive statistics for the whole dataset:
+We can also get a summary of missing data for the whole dataset:
 
 ```python
-na.describe(data, per_column=False)
+na.summary(data, per_column=False)
 ```
 
 |                                |   dataset |
@@ -78,7 +82,8 @@ na.describe(data, per_column=False)
 
 ### Correlations
 
-Titanic dataset is not big enough to demonstrate and make use of the correlation feature. However, here is the code:
+To calculate correlations between columns in terms of missing data, just call
+`correlate()` function with your DataFrame as the first argument:
 
 ```python
 na.correlate(data, method="spearman").round(3)
@@ -90,9 +95,10 @@ na.correlate(data, method="spearman").round(3)
 | Age      |     -0.024 |  1     |   0.144 |
 | Cabin    |     -0.087 |  0.144 |   1     |
 
-This method can be used to uncover hidden patterns in NA values across many columns in a dataset. It automatically excludes columns that do not contain any NA values.
+This method can be used to uncover hidden patterns in missing data across many
+columns in a dataset. Columns with no missing data are automatically excluded.
 
-There is a function to visualize correlations using a heatmap:
+There is a function to visualize correlations with a heatmap:
 
 ```python
 na.altair\
@@ -106,7 +112,9 @@ na.altair\
 
 #### Heatmap
 
-Now, let's visualize NA values using a heatmap. We'll be using [Altair](altair-viz.github.io/) + [Vega](https://vega.github.io/vega-lite/) backend:
+Now, let's visualize NA values on a heatmap. We will be using
+[Altair](altair-viz.github.io/) + [Vega](https://vega.github.io/vega-lite/)
+backend:
 
 ```python
 na.altair.plot_heatmap(data)
@@ -114,11 +122,14 @@ na.altair.plot_heatmap(data)
 
 ![NA heatmap](img/titanic_na_heatmap.svg)
 
-Droppables are those values that will be dropped if we simply use `pandas.DataFrame.dropna()` on the *whole dataset*.
+Droppables are those values that will be dropped if we simply use
+`pandas.DataFrame.dropna()` on the *whole dataset*.
 
 #### Stairs plot
 
-Stairs plot is one more useful visualization of dataset shrinkage on applying `pandas.DataFrame.dropna()` method to each column sequentially (sorted by the number of NA values, by default):
+Stairs plot is one more useful visualization of dataset shrinkage on applying
+`pandas.Series.dropna()` method to each column sequentially (sorted by the
+number of NA values, by default):
 
 ```python
 na.altair.plot_stairs(data)
@@ -126,7 +137,9 @@ na.altair.plot_stairs(data)
 
 ![NA stairsplot](img/titanic_na_stairsplot.svg)
 
-After dropping all NAs in `Cabin` column, we are left with 21 more NAs (in `Age` and `Embarked` columns). This plot also shows tooltips with exact numbers of NA values that are dropped per each column.
+After dropping all NAs in `Cabin` column, we are left with 21 more NAs (in `Age`
+and `Embarked` columns). This plot also shows tooltips with exact numbers of NA
+values that are dropped per each column.
 
 #### Histogram
 
@@ -146,7 +159,12 @@ chart.configure_axisX(labelAngle = 0)
 
 ### Regression model
 
-We can build a logistic regression model with `Age` as a dependent variable and `Fare`, `Parch`, `Pclass`, `SibSp`, `Survived` as independent variables. Internally, `pandas.Series.isna()` method is called on `Age` column, and the resulting boolean values are converted to integers (`True`/`False` becomes `0`/`1`). Finally, fitting a logistic model is done by [statsmodels](https://www.statsmodels.org) package:
+We can build a logistic regression model with `Age` as a dependent variable and
+`Fare`, `Parch`, `Pclass`, `SibSp`, `Survived` as independent variables.
+Internally, `pandas.Series.isna()` method is called on `Age` column, and the
+resulting boolean values are converted to integers (`True`/`False` becomes
+`1`/`0`). Finally, fitting a logistic model is done by
+[statsmodels](https://www.statsmodels.org) package:
 
 ```python
 # Selecting columns with numeric data
@@ -161,14 +179,14 @@ Optimization terminated successfully.
 Current function value: 0.467801
 Iterations 7
                         Logit Regression Results                           
-==============================================================================
-Dep. Variable:                    Age   No. Observations:                  891
-Model:                          Logit   Df Residuals:                      885
-Method:                           MLE   Df Model:                            5
-Date:                Sat, 05 Jun 2021   Pseudo R-squ.:                 0.06164
-Time:                        17:51:31   Log-Likelihood:                -416.81
-converged:                       True   LL-Null:                       -444.19
-Covariance Type:            nonrobust   LLR p-value:                 1.463e-10
+===============================================================================
+Dep. Variable:                    Age   No. Observations:                   891
+Model:                          Logit   Df Residuals:                       885
+Method:                           MLE   Df Model:                             5
+Date:                Sat, 05 Jun 2021   Pseudo R-squ.:                  0.06164
+Time:                        17:51:31   Log-Likelihood:                 -416.81
+converged:                       True   LL-Null:                        -444.19
+Covariance Type:            nonrobust   LLR p-value:                  1.463e-10
 ===============================================================================
                 coef    std err          z      P>|z|      [0.025      0.975]
 -------------------------------------------------------------------------------
@@ -181,6 +199,16 @@ Survived       -0.1026      0.198     -0.519      0.604      -0.490       0.285
 ===============================================================================
 ```
 
+### Interactive report
+
+Use `report()` function to show interactive report interface:
+
+```python
+na.report(data)
+```
+
+![Report](img/report_summary.png)
+
 ## Contribution
 
-You are welcome to make any contribution you like: pull requests, suggestions, bug reports.
+Any contribution is highly appreciated: pull requests, suggestions, or bug reports.

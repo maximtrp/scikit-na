@@ -7,8 +7,7 @@ runs a logistic model using `statsmodels <https://www.statsmodels.org>`_ package
 as a backend.
 
 For demonstration purposes, we will use `Titanic dataset
-<https://www.kaggle.com/c/titanic/data>`_, though it is not that interesting to
-uncover dependencies. Let's create a regression model with *Age* as a
+<https://www.kaggle.com/c/titanic/data>`_. Let's create a regression model with *Age* as a
 dependent variable and *Fare*, *Parch*, *Pclass*, *SibSp*, *Survived*
 as independent variables. Internally, ``pandas.Series.isna()`` method is called
 on *Age* column, and the resulting boolean values are converted to integers

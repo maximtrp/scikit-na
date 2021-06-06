@@ -1,5 +1,5 @@
 __all__ = ['report']
-from .altair import plot_corr, plot_dist
+from .altair import plot_corr, plot_dist, plot_stairs, plot_heatmap
 from ._stats import (
     describe, summary, _select_cols, _get_nominal_cols, _get_numeric_cols)
 from pandas import DataFrame
@@ -70,14 +70,52 @@ def report(
     summary_tab = widgets.VBox(
         [select_accordion, summary_table_accordion, total_summary_accordion])
 
+    # VISUALIZATION TAB
+    # Columns selection
+    def _on_vis_col_select(names):
+        stairs_plot.clear_output(wait=False)
+        heatmap_plot.clear_output(wait=False)
+        with stairs_plot:
+            display(plot_stairs(data, columns=names['new']))
+        with heatmap_plot:
+            display(plot_heatmap(data, columns=names['new']))
+
+    select_vis_cols = widgets.SelectMultiple(options=cols, rows=6)
+    select_vis_cols.observe(_on_vis_col_select, names='value')
+    select_vis_accordion = widgets.Accordion(children=[select_cols])
+    select_vis_accordion.set_title(0, 'Columns selection')
+    select_vis_accordion.selected_index = 0
+
+    # Creating plots
+    stairs_plot = widgets.Output()
+    stairs_plot.append_display_data(
+        plot_stairs(data, columns=cols))
+    heatmap_plot = widgets.Output()
+    heatmap_plot.append_display_data(
+        plot_heatmap(data, columns=cols))
+
+    # Joining two plots into one container
+    vis_box = widgets.HBox(
+        [stairs_plot, heatmap_plot])
+
+    # Making an accordion with both plots
+    vis_accordion = widgets.Accordion(children=[vis_box])
+    vis_accordion.set_title(0, 'Stairs plot and heatmap of NA values')
+    vis_accordion.selected_index = 0
+
+    # Finalizing tab
+    vis_tab = widgets.VBox(
+        [select_vis_accordion, vis_accordion])
+
     # SUMMARY TAB
+    # Choosing a column with most NAs
     col_with_most_nas = data.loc[:, cols].isna().sum()\
         .sort_values().tail(1).index.item()
 
     def _on_stats_col_select(names):
         # Clearing display
         stats_table.clear_output(wait=False)
-        # Gettings selected column with NA values
+        # Getting selected column with NA values
         _col_na = select_stats_col_na.value
         # Getting selected columns
         _cols_tmp = select_stats_cols.value\
@@ -97,6 +135,7 @@ def report(
                     data, col_na=_col_na, columns=_cols_nominal)
                 .round(round_dec))
 
+    # Setting up dropdown and select elements for choosing columns
     select_stats_col_na_header = widgets.HTML(
         '<b>Select a column with NAs to group values by</b>')
     select_stats_col_na = widgets.Dropdown(options=cols)
@@ -106,14 +145,16 @@ def report(
     select_stats_cols = widgets.SelectMultiple(options=cols, rows=6)
     select_stats_col_na.observe(_on_stats_col_select, names='value')
     select_stats_cols.observe(_on_stats_col_select, names='value')
+
     selects_stats = widgets.GridBox([
-        widgets.VBox(
-            [select_stats_col_na_header, select_stats_col_na],
-            layout={'align_items': 'center'}),
         widgets.VBox(
             [select_stats_cols_header, select_stats_cols],
             layout={'align_items': 'center'}),
+        widgets.VBox(
+            [select_stats_col_na_header, select_stats_col_na],
+            layout={'align_items': 'center'}),
     ], layout=layout)
+
     select_accordion = widgets.Accordion(children=[selects_stats])
     select_accordion.set_title(0, 'Columns selection')
     select_accordion.selected_index = 0
@@ -233,9 +274,10 @@ def report(
         [dist_image_box, selects_box])
 
     # FINALIZING REPORT INTERFACE
-    tab.children = [summary_tab, stats_tab, corr_tab, dist_tab]
+    tab.children = [summary_tab, vis_tab, stats_tab, corr_tab, dist_tab]
     tab.set_title(0, 'Summary')
-    tab.set_title(1, 'Statistics')
-    tab.set_title(2, 'Correlations')
-    tab.set_title(3, 'Distributions')
+    tab.set_title(1, 'Visualizations')
+    tab.set_title(2, 'Statistics')
+    tab.set_title(3, 'Correlations')
+    tab.set_title(4, 'Distributions')
     return tab
