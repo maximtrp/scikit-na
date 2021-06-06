@@ -6,6 +6,9 @@ includes many functions for statistical analysis, modeling, and data
 visualization. The latter is done using two packages — `matplotlib
 <https://matplotlib.org/>`_ and `Altair <https://altair-viz.github.io>`_.
 
+.. image:: _static/titanic_vis.png
+   :alt: scikit-na visualizations
+
 Features
 ~~~~~~~~
 
