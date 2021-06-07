@@ -1,10 +1,8 @@
 Regression modeling
 ===================
 
-The presence of NA values can be used in regression modeling as a dependent
-variable encoded as ``0`` and ``1``. Currently, ``scikit_na.model()`` method
-runs a logistic model using `statsmodels <https://www.statsmodels.org>`_ package
-as a backend.
+The presence of missing data can be used in regression modeling as a dependent
+variable encoded as ``0`` and ``1``.
 
 For demonstration purposes, we will use `Titanic dataset
 <https://www.kaggle.com/c/titanic/data>`_. Let's create a regression model with *Age* as a
@@ -13,6 +11,9 @@ as independent variables. Internally, ``pandas.Series.isna()`` method is called
 on *Age* column, and the resulting boolean values are converted to integers
 (``True`` and ``False`` become ``1`` and ``0``). Data preprocessing is totally up to
 you!
+
+Currently, ``scikit_na.model()`` function runs a logistic model using `statsmodels
+<https://www.statsmodels.org>`_ package as a backend.
 
 .. code:: python
 

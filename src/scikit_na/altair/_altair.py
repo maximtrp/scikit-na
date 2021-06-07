@@ -1,5 +1,6 @@
 __all__ = [
-    'plot_dist', 'plot_corr', 'plot_scatter', 'plot_stairs', 'plot_heatmap']
+    'plot_hist', 'plot_kde', 'plot_corr',
+    'plot_scatter', 'plot_stairs', 'plot_heatmap']
 from .._stats import _get_rows_after_cum_dropna, _select_cols, correlate
 from altair import (
     Chart, Color, condition, data_transformers, selection_multi,
@@ -14,32 +15,30 @@ from numbers import Integral
 data_transformers.disable_max_rows()
 
 
-def plot_dist(
+def plot_hist(
         data: DataFrame,
         col: str,
         col_na: str,
         na_label: str = None,
         na_replace: dict = {
             True: 'NA', False: 'Filled'},
-        kind: str = "hist",
         heuristic: bool = True,
         thres_uniq: int = 20,
         step: bool = False,
         norm: bool = True,
         font_size: int = 14,
         xlabel: str = None,
-        ylabel: str = None,
+        ylabel: str = "Frequency",
         chart_kws: dict = {},
         markarea_kws: dict = {},
         markbar_kws: dict = {},
         joinagg_kws: dict = {},
         calc_kws: dict = {},
-        density_kws: dict = {},
         x_kws: dict = {},
         y_kws: dict = {},
         color_kws: dict = {}) -> Chart:
-    """Plot distribution of values in a column `col` grouped by
-    NA/non-NA values in column `col_na`.
+    """Plot a histogram of values in a column `col` grouped by NA/non-NA values
+    in column `col_na`.
 
     Parameters
     ----------
@@ -54,8 +53,6 @@ def plot_dist(
     na_replace : dict, optional
         Dictionary to replace values returned by
         :py:meth:`pandas.Series.isna()` method.
-    kind : str, optional
-        Plot kind: "hist" or "kde".
     step : bool, optional
         Draw step plot.
     norm : bool, optional
@@ -76,9 +73,6 @@ def plot_dist(
     calc_kws : dict, optional
         Keyword arguments passed to
         :py:meth:`altair.Chart.transform_calculate()`.
-    density_kws : dict, optional
-        Keyword arguments passed to
-        :py:meth:`altair.Chart.transform_density()`.
     x_kws : dict, optional
         Keyword arguments passed to :py:meth:`altair.X()`.
     y_kws : dict, optional
@@ -91,21 +85,14 @@ def plot_dist(
     Chart
         Altair Chart object.
     """
-    if not ylabel:
-        ylabel = "Frequency" if kind == 'hist' else "Density"
-
     markbar_kws.setdefault('opacity', 0.5)
     markarea_kws.setdefault('opacity', 0.5)
     markarea_kws.setdefault('interpolate', 'step')
 
-    density_kws.update({'density': col})
-    density_kws.update({'groupby': [col_na]})
-    density_kws.update({'as_': [col, ylabel]})
-
     joinagg_kws.setdefault('total', 'count()')
     joinagg_kws.update({'groupby': [col_na]})
 
-    # Simple heuristic for choosing distplot parameters
+    # Simple heuristic for choosing histplot parameters
     if heuristic:
         # 1) If dtype is object, do not bin anything and treat as nominal
         if data[col].dtype == object:
@@ -144,17 +131,12 @@ def plot_dist(
         if step\
         else chart.mark_bar(**markbar_kws)
 
-    if kind == "hist":
-        if norm:
-            y_shorthand = 'sum(y)'
-            chart = chart.transform_joinaggregate(**joinagg_kws)
-            chart = chart.transform_calculate(**calc_kws)
-        else:
-            y_shorthand = 'count()'
-
-    elif kind == 'kde':
-        y_shorthand = ylabel
-        chart = chart.transform_density(**density_kws)
+    if norm:
+        y_shorthand = 'sum(y)'
+        chart = chart.transform_joinaggregate(**joinagg_kws)
+        chart = chart.transform_calculate(**calc_kws)
+    else:
+        y_shorthand = 'count()'
 
     selection = selection_multi(fields=[col_na], bind='legend')
     chart = chart.encode(
@@ -164,10 +146,102 @@ def plot_dist(
         tooltip=['count()'],
         opacity=condition(
             selection,
-            value(
-                markbar_kws['opacity']
-                if kind == 'hist'
-                else markarea_kws['opacity']),
+            value(markarea_kws['opacity'] if step else markbar_kws['opacity']),
+            value(0))
+    ).add_selection(selection)
+
+    return chart\
+        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
+        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+
+
+def plot_kde(
+        data: DataFrame,
+        col: str,
+        col_na: str,
+        na_label: str = None,
+        na_replace: dict = {
+            True: 'NA', False: 'Filled'},
+        font_size: int = 14,
+        xlabel: str = None,
+        ylabel: str = "Density",
+        chart_kws: dict = {},
+        markarea_kws: dict = {},
+        joinagg_kws: dict = {},
+        density_kws: dict = {},
+        x_kws: dict = {},
+        y_kws: dict = {},
+        color_kws: dict = {}) -> Chart:
+    """Plot distribution of values in a column `col` grouped by
+    NA/non-NA values in column `col_na`.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    col : str
+        Column to display distribution of values.
+    col_na : str
+        Column to group values by.
+    na_label : str, optional
+        Legend title.
+    na_replace : dict, optional
+        Dictionary to replace values returned by
+        :py:meth:`pandas.Series.isna()` method.
+    xlabel : str, optional
+        X axis label.
+    ylabel : str, optional
+        Y axis label.
+    chart_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart()`.
+    markarea_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart.mark_area()`.
+    density_kws : dict, optional
+        Keyword arguments passed to
+        :py:meth:`altair.Chart.transform_density()`.
+    x_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.X()`.
+    y_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Y()`.
+    color_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Color()`.
+
+    Returns
+    -------
+    Chart
+        Altair Chart object.
+    """
+    markarea_kws.setdefault('opacity', 0.5)
+    # markarea_kws.setdefault('interpolate', 'step')
+
+    density_kws.update({'density': col})
+    density_kws.update({'groupby': [col_na]})
+    density_kws.update({'as_': [col, ylabel]})
+
+    x_kws.update({'title': xlabel or col})
+
+    y_kws.setdefault('type', 'quantitative')
+    y_kws.setdefault('stack', None)
+    y_kws.update({'title': ylabel})
+    y_shorthand = ylabel
+
+    color_kws.update({'title': na_label or col_na})
+
+    data_copy = data.loc[:, [col, col_na]].copy()
+    data_copy[col_na] = data_copy.loc[:, col_na].isna().replace(na_replace)
+
+    # Chart creation
+    chart = Chart(data_copy).mark_area(**markarea_kws)
+    chart = chart.transform_density(**density_kws)
+
+    selection = selection_multi(fields=[col_na], bind='legend')
+    chart = chart.encode(
+        x=X(col, **x_kws),
+        y=Y(y_shorthand, **y_kws),
+        color=Color(col_na, **color_kws),
+        opacity=condition(
+            selection,
+            value(markarea_kws['opacity']),
             value(0))
     ).add_selection(selection)
 
@@ -361,7 +435,12 @@ def plot_heatmap(
     data_copy = data.loc[:, r_[cols, tt_cols]].copy()
     data_copy.loc[:, cols] = data_copy.loc[:, cols].isna()
     if sort:
-        data_copy.sort_values(by=cols.tolist(), inplace=True)
+        cols_sorted = data_copy.loc[:, cols]\
+            .sum()\
+            .sort_values(ascending=False)\
+            .index.tolist()
+        data_copy.sort_values(by=cols_sorted, inplace=True)
+        x_kws.update({'sort': cols_sorted})
 
     if droppable:
         non_na_mask = ~data_copy.loc[:, cols].values

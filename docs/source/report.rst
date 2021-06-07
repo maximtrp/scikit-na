@@ -7,7 +7,7 @@ interactively explore NA values in your dataset, view patterns, calculate
 statistics, show relevant figures and tables.
 
 To begin, just load the data and pass your DataFrame to ``scikit_na.report()``
-method:
+function:
 
 .. code:: python
 

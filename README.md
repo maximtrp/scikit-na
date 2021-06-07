@@ -10,7 +10,7 @@
 
 * Interactive report (based on [ipywidgets](ipywidgets.readthedocs.io/))
 * Descriptive statistics
-* Regression modelling
+* Regression modeling
 * Hypotheses tests
 * Data visualization
 
@@ -113,7 +113,7 @@ na.altair\
 #### Heatmap
 
 Now, let's visualize NA values on a heatmap. We will be using
-[Altair](altair-viz.github.io/) + [Vega](https://vega.github.io/vega-lite/)
+[Altair](https://altair-viz.github.io/) + [Vega](https://vega.github.io/vega-lite/)
 backend:
 
 ```python
@@ -146,11 +146,7 @@ values that are dropped per each column.
 You may need to adjust some parameters before a histogram starts looking as you expect:
 
 ```python
-chart = na.altair\
-    .plot_dist(
-        data,
-        col='Pclass', col_na='Age',
-        x_kws={'type': 'ordinal', 'bin': False})\
+chart = na.altair.plot_hist(data, col='Pclass', col_na='Age')\
     .properties(width=200, height=200)
 chart.configure_axisX(labelAngle = 0)
 ```
@@ -201,7 +197,7 @@ Survived       -0.1026      0.198     -0.519      0.604      -0.490       0.285
 
 ### Interactive report
 
-Use `report()` function to show interactive report interface:
+Use `scikit_na.report()` function to show interactive report interface:
 
 ```python
 na.report(data)

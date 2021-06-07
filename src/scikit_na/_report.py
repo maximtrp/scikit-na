@@ -1,5 +1,5 @@
 __all__ = ['report']
-from .altair import plot_corr, plot_dist, plot_stairs, plot_heatmap
+from .altair import plot_corr, plot_hist, plot_stairs, plot_heatmap
 from ._stats import (
     describe, summary, _select_cols, _get_nominal_cols, _get_numeric_cols)
 from pandas import DataFrame
@@ -15,7 +15,7 @@ def report(
         round_dec: int = 2,
         corr_kws: dict = {},
         heat_kws: dict = {},
-        dist_kws: dict = {}):
+        hist_kws: dict = {}):
 
     from IPython.display import display
     cols = _select_cols(data, columns).tolist()
@@ -233,7 +233,7 @@ def report(
                 display(widgets.HTML("Select different columns"))
             else:
                 display(
-                    plot_dist(
+                    plot_hist(
                         data,
                         col=col,
                         col_na=na_col,
@@ -247,7 +247,7 @@ def report(
     # Preparing widgets
     dist_image = widgets.Output()
     dist_image.append_display_data(
-        plot_dist(data, col=random_col, col_na=col_with_most_nas, **dist_kws)
+        plot_hist(data, col=random_col, col_na=col_with_most_nas, **hist_kws)
         .properties(width=400))
     dist_image_header = widgets.HTML('<b>Distributions of values</b>')
     dist_image_box = widgets.VBox(
@@ -280,4 +280,5 @@ def report(
     tab.set_title(2, 'Statistics')
     tab.set_title(3, 'Correlations')
     tab.set_title(4, 'Distributions')
+
     return tab

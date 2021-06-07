@@ -3,7 +3,8 @@ Statistics
 
 In missing data analysis, an important step is to calculate simple descriptive
 and aggregating statistics of missing and non-missing data for each column and
-for the whole dataset. *Scikit-na* attempts to provide useful functions for such operations.
+for the whole dataset. *Scikit-na* attempts to provide useful functions for such
+operations.
 
 Summary
 ~~~~~~~
@@ -51,7 +52,7 @@ Those measures were meant to be self-explanatory:
   columns).
 
 - *Rows left after dropna()* shows how many rows will be left in a dataset
-  after applying ``pandas.Series.dropna()`` method to each column.
+  if we apply ``pandas.Series.dropna()`` method to each column.
 
 Whole dataset
 -------------
@@ -81,21 +82,24 @@ Cells with non-missing data, %       91.9
 Descriptive statistics
 ~~~~~~~~~~~~~~~~~~~~~~
 
-The next step is to calculate simple descriptive statistics for columns with
+The next step is to calculate descriptive statistics for columns with
 quantitative and qualitative data. First, let's filter the columns by data
 types:
 
 .. code:: python
 
-    # Presumably, qualitative data
+    # Presumably, qualitative data, needs checking
     cols_nominal = data.columns[data.dtypes == object]
 
     # Quantitative data
     cols_numeric = data.columns[(data.dtypes == float) | (data.dtypes == int)]
 
 We should also specify a column with missing values (NAs) that will be used to
-split the data in the selected columns in two groups: NA (missing) and Filled
+split the data in the selected columns into two groups: NA (missing) and Filled
 (non-missing).
+
+Qualitative data
+----------------
 
 .. code:: python
 
@@ -112,7 +116,7 @@ top     S       S    Levy, Mr. Rene Jacques  Nasser, Mr. Nicholas  male    male 
 freq    129     515  1                       1                     107     470        4       7
 ======  ======  ===  ======================  ====================  ======  ====  ======  ======
 
-Let's check there results by hand:
+Let's check the results by hand:
 
 .. code:: python
 
@@ -133,7 +137,10 @@ Here we take *Cabin* column, encode missing/non-missing data as Filled/NA, and
 then use it to group and count values in *Sex* column: among the passengers with
 missing *cabin* data, 470 were males, while 217 were females.
 
-Now, let's look at the statistics for the numeric data:
+Quantitative data
+-----------------
+
+Now, let's look at the statistics calculated for the numeric data:
 
 .. code:: python
 
