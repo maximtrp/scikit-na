@@ -1,16 +1,17 @@
+"""Altair-backed plotting functions."""
 __all__ = [
     'plot_hist', 'plot_kde', 'plot_corr',
     'plot_scatter', 'plot_stairs', 'plot_heatmap']
-from .._stats import _get_rows_after_cum_dropna, _select_cols, correlate
+from typing import Union, Optional, List, Iterable
+from functools import partial
+from numbers import Integral
+from ipywidgets import widgets, interact
+from numpy import array, arange, ndarray, argmin, r_, nan, fill_diagonal
+from pandas import DataFrame, Index
 from altair import (
     Chart, Color, condition, data_transformers, selection_multi,
     Scale, Text, value, X, Y)
-from pandas import DataFrame, Index
-from numpy import array, arange, ndarray, argmin, r_, nan, fill_diagonal
-from functools import partial
-from typing import Union, Optional, List, Iterable
-from ipywidgets import widgets, interact
-from numbers import Integral
+from .._stats import _get_rows_after_cum_dropna, _select_cols, correlate
 # Allow plotting mote than 5000 rows
 data_transformers.disable_max_rows()
 
@@ -20,8 +21,7 @@ def plot_hist(
         col: str,
         col_na: str,
         na_label: str = None,
-        na_replace: dict = {
-            True: 'NA', False: 'Filled'},
+        na_replace: dict = None,
         heuristic: bool = True,
         thres_uniq: int = 20,
         step: bool = False,
@@ -29,15 +29,17 @@ def plot_hist(
         font_size: int = 14,
         xlabel: str = None,
         ylabel: str = "Frequency",
-        chart_kws: dict = {},
-        markarea_kws: dict = {},
-        markbar_kws: dict = {},
-        joinagg_kws: dict = {},
-        calc_kws: dict = {},
-        x_kws: dict = {},
-        y_kws: dict = {},
-        color_kws: dict = {}) -> Chart:
-    """Plot a histogram of values in a column `col` grouped by NA/non-NA values
+        chart_kws: dict = None,
+        markarea_kws: dict = None,
+        markbar_kws: dict = None,
+        joinagg_kws: dict = None,
+        calc_kws: dict = None,
+        x_kws: dict = None,
+        y_kws: dict = None,
+        color_kws: dict = None) -> Chart:
+    """Histogram plot.
+
+    Plots a histogram of values in a column `col` grouped by NA/non-NA values
     in column `col_na`.
 
     Parameters
@@ -85,12 +87,24 @@ def plot_hist(
     Chart
         Altair Chart object.
     """
-    markbar_kws.setdefault('opacity', 0.5)
-    markarea_kws.setdefault('opacity', 0.5)
-    markarea_kws.setdefault('interpolate', 'step')
-
-    joinagg_kws.setdefault('total', 'count()')
-    joinagg_kws.update({'groupby': [col_na]})
+    if not chart_kws:
+        chart_kws = {}
+    if not markarea_kws:
+        markarea_kws = {'opacity': 0.5, 'interpolate': 'step'}
+    if not markbar_kws:
+        markbar_kws = {'opacity': 0.5}
+    if not joinagg_kws:
+        joinagg_kws = {'total': 'count()', 'groupby': [col_na]}
+    if not calc_kws:
+        calc_kws = {'y': '1 / datum.total'}
+    if not x_kws:
+        x_kws = {'title': xlabel or col}
+    if not y_kws:
+        y_kws = {'type': 'quantitative', 'stack': None, 'title': ylabel}
+    if not color_kws:
+        color_kws = {'title': na_label or col_na}
+    if not na_replace:
+        na_replace = {True: 'NA', False: 'Filled'}
 
     # Simple heuristic for choosing histplot parameters
     if heuristic:
@@ -112,15 +126,6 @@ def plot_hist(
                 x_kws.update({'bin': True})
                 x_kws.update({'type': 'quantitative'})
 
-    x_kws.update({'title': xlabel or col})
-
-    y_kws.setdefault('type', 'quantitative')
-    y_kws.setdefault('stack', None)
-    y_kws.update({'title': ylabel})
-
-    calc_kws.setdefault('y', '1 / datum.total')
-    color_kws.update({'title': na_label or col_na})
-
     data_copy = data.loc[:, [col, col_na]].copy()
     data_copy[col_na] = data_copy.loc[:, col_na].isna().replace(na_replace)
 
@@ -131,6 +136,7 @@ def plot_hist(
         if step\
         else chart.mark_bar(**markbar_kws)
 
+    # Normed vs non-normed histogram
     if norm:
         y_shorthand = 'sum(y)'
         chart = chart.transform_joinaggregate(**joinagg_kws)
@@ -160,19 +166,19 @@ def plot_kde(
         col: str,
         col_na: str,
         na_label: str = None,
-        na_replace: dict = {
-            True: 'NA', False: 'Filled'},
+        na_replace: dict = None,
         font_size: int = 14,
         xlabel: str = None,
         ylabel: str = "Density",
-        chart_kws: dict = {},
-        markarea_kws: dict = {},
-        joinagg_kws: dict = {},
-        density_kws: dict = {},
-        x_kws: dict = {},
-        y_kws: dict = {},
-        color_kws: dict = {}) -> Chart:
-    """Plot distribution of values in a column `col` grouped by
+        chart_kws: dict = None,
+        markarea_kws: dict = None,
+        density_kws: dict = None,
+        x_kws: dict = None,
+        y_kws: dict = None,
+        color_kws: dict = None) -> Chart:
+    """Density plot.
+
+    Plots distribution of values in a column `col` grouped by
     NA/non-NA values in column `col_na`.
 
     Parameters
@@ -211,27 +217,29 @@ def plot_kde(
     Chart
         Altair Chart object.
     """
-    markarea_kws.setdefault('opacity', 0.5)
-    # markarea_kws.setdefault('interpolate', 'step')
+    if not chart_kws:
+        chart_kws = {}
+    if not markarea_kws:
+        markarea_kws = {'opacity': 0.5}
+    if not density_kws:
+        density_kws = {
+            'density': col, 'groupby': [col_na], 'as_': [col, ylabel]}
+    if not x_kws:
+        x_kws = {'title': xlabel or col}
+    if not y_kws:
+        y_kws = {'type': 'quantitative', 'stack': None, 'title': ylabel}
+    if not color_kws:
+        color_kws = {'title': na_label or col_na}
+    if not na_replace:
+        na_replace = {True: 'NA', False: 'Filled'}
 
-    density_kws.update({'density': col})
-    density_kws.update({'groupby': [col_na]})
-    density_kws.update({'as_': [col, ylabel]})
-
-    x_kws.update({'title': xlabel or col})
-
-    y_kws.setdefault('type', 'quantitative')
-    y_kws.setdefault('stack', None)
-    y_kws.update({'title': ylabel})
     y_shorthand = ylabel
-
-    color_kws.update({'title': na_label or col_na})
 
     data_copy = data.loc[:, [col, col_na]].copy()
     data_copy[col_na] = data_copy.loc[:, col_na].isna().replace(na_replace)
 
     # Chart creation
-    chart = Chart(data_copy).mark_area(**markarea_kws)
+    chart = Chart(data_copy, **chart_kws).mark_area(**markarea_kws)
     chart = chart.transform_density(**density_kws)
 
     selection = selection_multi(fields=[col_na], bind='legend')
@@ -252,31 +260,73 @@ def plot_kde(
 
 def plot_scatter(
         data: DataFrame,
-        x: str,
-        y: str,
+        x_col: str,
+        y_col: str,
         col_na: str,
         na_label: str = None,
-        na_replace: dict = {True: 'NA', False: 'Filled'},
+        na_replace: dict = None,
         font_size: int = 14,
         xlabel: str = None,
         ylabel: str = None,
-        circle_kws: dict = {},
-        color_kws: dict = {},
-        x_kws: dict = {},
-        y_kws: dict = {}):
-    data_copy = data.loc[:, [x, y, col_na]].copy()
+        circle_kws: dict = None,
+        color_kws: dict = None,
+        x_kws: dict = None,
+        y_kws: dict = None):
+    """Scatter plot.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    x_col : str
+        Column name corresponding to X axis.
+    y_col : str
+        Column name corresponding to Y axis.
+    col_na : str
+        Column name
+    na_label : str, optional
+        Label for NA values in legend.
+    na_replace : dict, optional
+        NA replacement mapping, by default {True: 'NA', False: 'Filled'}.
+    font_size : int, optional
+        Font size for plotting, by default 14.
+    xlabel : str, optional
+        X axis label.
+    ylabel : str, optional
+        Y axis label.
+    circle_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart.mark_circle()`.
+    color_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Color()`.
+    x_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.X()`.
+    y_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Y()`.
+
+    Returns
+    -------
+    altair.Chart
+        Scatter plot.
+    """
+    if not circle_kws:
+        circle_kws = {'opacity': 0.5}
+    if not color_kws:
+        color_kws = {'title': col_na or na_label}
+    if not x_kws:
+        x_kws = {'title': xlabel or x_col}
+    if not y_kws:
+        y_kws = {'title': ylabel or y_col}
+    if not na_replace:
+        na_replace = {True: 'NA', False: 'Filled'}
+
+    data_copy = data.loc[:, [x_col, y_col, col_na]].copy()
     data_copy[col_na] = data_copy[col_na].isna().replace(na_replace)
     base = Chart(data_copy)
 
-    circle_kws.setdefault('opacity', 0.5)
-    x_kws.update({'title': xlabel or x})
-    y_kws.update({'title': ylabel or y})
-    color_kws.update({'title': col_na or na_label})
-
     selection = selection_multi(fields=[col_na], bind='legend')
     points = base.mark_circle(**circle_kws).encode(
-        x=X(x, **x_kws),
-        y=Y(y, **y_kws),
+        x=X(x_col, **x_kws),
+        y=Y(y_col, **y_kws),
         color=Color(col_na, **color_kws),
         opacity=condition(selection, value(circle_kws['opacity']), value(0))
     ).add_selection(selection)
@@ -294,12 +344,13 @@ def plot_stairs(
         tooltip_label: str = 'Size difference',
         dataset_label: str = '(Whole dataset)',
         font_size: int = 14,
-        area_kws: dict = {},
-        chart_kws: dict = {},
-        x_kws: dict = {},
-        y_kws: dict = {}):
-    """Stairs plot for dataset and specified columns. Displays the changes in
-    dataset size (rows/instances number) after applying
+        area_kws: dict = None,
+        chart_kws: dict = None,
+        x_kws: dict = None,
+        y_kws: dict = None):
+    """Stairs plot.
+
+    Plots changes in dataset size (rows/instances number) after applying
     :py:meth:`pandas.DataFrame.dropna()` to each column cumulatively.
 
     Columns are sorted by maximum influence on dataset size.
@@ -332,6 +383,15 @@ def plot_stairs(
     altair.Chart
         Chart object.
     """
+    if not area_kws:
+        area_kws = {'interpolate': 'step-after', 'line': True}
+    if not chart_kws:
+        chart_kws = {}
+    if not x_kws:
+        x_kws = {'sort': '-y', 'shorthand': xlabel}
+    if not y_kws:
+        y_kws = {'shorthand': ylabel}
+
     cols = _select_cols(data, columns).tolist()
     stairs_values = []
     stairs_labels = []
@@ -352,12 +412,6 @@ def plot_stairs(
     })
     data_sizes[tooltip_label] = data_sizes[ylabel].diff().fillna(0)
 
-    area_kws.setdefault('interpolate', 'step-after')
-    area_kws.setdefault('line', True)
-    x_kws.setdefault('sort', '-y')
-    x_kws.update({'shorthand': xlabel})
-    y_kws.update({'shorthand': ylabel})
-
     chart = Chart(data_sizes, **chart_kws)\
         .mark_area(**area_kws)\
         .encode(
@@ -374,20 +428,22 @@ def plot_heatmap(
         data: DataFrame,
         columns: Optional[Iterable] = None,
         tooltip_cols: Optional[Iterable] = None,
-        names: list = ['Filled', 'NA', 'Droppable'],
+        names: list = None,
         sort: bool = True,
         droppable: bool = True,
         font_size: int = 14,
         xlabel: str = 'Columns',
         ylabel: str = 'Rows',
         zlabel: str = 'Values',
-        chart_kws: dict = {'height': 300},
-        rect_kws: dict = {},
-        x_kws: dict = {'sort': None},
-        y_kws: dict = {'sort': None},
-        color_kws: dict = {}) -> Chart:
-    """Heatmap plot for NA/non-NA values. By default, it also displays values
-    that are to be dropped by :py:meth:`pandas.DataFrame.dropna()` method.
+        chart_kws: dict = None,
+        rect_kws: dict = None,
+        x_kws: dict = None,
+        y_kws: dict = None,
+        color_kws: dict = None) -> Chart:
+    """Heatmap plot for NA/non-NA values.
+
+    By default, it also indicates values that are to be dropped by
+    :py:meth:`pandas.DataFrame.dropna()` method.
 
     Parameters
     ----------
@@ -429,6 +485,25 @@ def plot_heatmap(
     altair.Chart
         Altair Chart object.
     """
+    if not chart_kws:
+        chart_kws = {'height': 300}
+    if not x_kws:
+        x_kws = {'sort': None, 'shorthand': xlabel, 'type': 'nominal'}
+    if not y_kws:
+        y_kws = {'sort': None, 'shorthand': ylabel, 'type': 'ordinal'}
+    if not names:
+        names = ['Filled', 'NA', 'Droppable']
+    if not color_kws:
+        color_kws = {
+            'shorthand': zlabel,
+            'type': 'nominal',
+            'scale': Scale(
+                domain=names[0:2] if not droppable else names,
+                range=["green", "red", "orange"])
+        }
+    if not rect_kws:
+        rect_kws = {}
+
     cols = _select_cols(data, columns)
     tt_cols = _select_cols(data, tooltip_cols, [])
 
@@ -462,14 +537,6 @@ def plot_heatmap(
         var_name=xlabel,
         value_name=zlabel)
 
-    x_kws.update({'shorthand': xlabel, 'type': 'nominal'})
-    y_kws.update({'shorthand': ylabel, 'type': 'ordinal'})
-    color_kws.update({'shorthand': zlabel, 'type': 'nominal'})
-    color_kws.setdefault('scale', Scale(
-        domain=names[0:2] if not droppable else names,
-        range=["green", "red", "orange"]
-    ))
-
     chart = Chart(data_copy, **chart_kws)\
         .mark_rect(**rect_kws)\
         .encode(
@@ -487,21 +554,18 @@ def plot_heatmap(
 def plot_corr(
         data: DataFrame,
         columns: Optional[Iterable] = None,
-        drop: bool = True,
         mask_diag: bool = True,
-        annot: bool = True,
         annot_color: str = "black",
         round_sgn: int = 2,
         font_size: int = 14,
         opacity: float = 0.5,
-        cmap: str = "redblue",
-        corr_kws: dict = {},
-        chart_kws: dict = {},
-        x_kws: dict = {},
-        y_kws: dict = {},
-        color_kws: dict = {},
-        text_kws: dict = {}) -> Chart:
-    """Plot a correlation heatmap.
+        corr_kws: dict = None,
+        chart_kws: dict = None,
+        x_kws: dict = None,
+        y_kws: dict = None,
+        color_kws: dict = None,
+        text_kws: dict = None) -> Chart:
+    """Correlation heatmap.
 
     Parameters
     ----------
@@ -509,8 +573,6 @@ def plot_corr(
         Input data.
     columns : Optional[Iterable]
         Columns names.
-    drop : bool = True
-        Drop columns without NAs.
     mask_diag : bool = True
         Mask diagonal on heatmap.
     corr_kws : dict, optional
@@ -523,29 +585,33 @@ def plot_corr(
     altair.Chart
         Altair Chart object.
     """
+    if not corr_kws:
+        corr_kws = {'method': 'spearman'}
+    if not chart_kws:
+        chart_kws = {}
+    if not x_kws:
+        x_kws = {'shorthand': 'variable', 'title': ''}
+    if not y_kws:
+        y_kws = {'shorthand': 'index', 'title': ''}
+    if not color_kws:
+        color_kws = {
+            'shorthand': 'value:Q',
+            'title': 'Correlation',
+            'scale': Scale(scheme="redblue", domain=[-1, 1], reverse=True)}
+    if not text_kws:
+        text_kws = {'shorthand': 'value:Q', 'format': f'.{round_sgn}f'}
+
     cols = _select_cols(data, columns)
 
-    corr_kws.setdefault('method', 'spearman')
     data_corr = correlate(data, columns=cols, **corr_kws)
+
     if mask_diag:
         fill_diagonal(data_corr.values, nan)
     data_corr_melt = data_corr.reset_index(drop=False).melt(id_vars=['index'])
 
-    chart_kws.update({'data': data_corr_melt})
-    x_kws.setdefault('shorthand', 'variable')
-    x_kws.setdefault('title', '')
-    y_kws.setdefault('shorthand', 'index')
-    y_kws.setdefault('title', '')
+    base = Chart(data_corr_melt, **chart_kws)\
+        .encode(x=X(**x_kws), y=Y(**y_kws))
 
-    color_kws.setdefault('shorthand', 'value:Q')
-    color_kws.setdefault('title', 'Correlation')
-    color_kws.setdefault(
-        'scale', Scale(scheme='redblue', domain=[-1, 1], reverse=True))
-
-    text_kws.setdefault('shorthand', 'value:Q')
-    text_kws.setdefault('format', f'.{round_sgn}f')
-
-    base = Chart(**chart_kws).encode(x=X(**x_kws), y=Y(**y_kws))
     heatmap = base.mark_rect().encode(color=Color(**color_kws))
     text = base.mark_text(baseline='middle').encode(text=Text(**text_kws))
 
@@ -561,7 +627,9 @@ def view_dist(
         data: DataFrame,
         columns: Optional[Union[List, ndarray, Index]] = None,
         **kwargs):
-    """Interactively observe distribution of values in a selected column
+    """Interactive distribution widget.
+
+    Interactively observe distribution of values in a selected column
     grouped by NA/non-NA values in another column.
 
     Parameters

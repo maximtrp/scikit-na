@@ -1,9 +1,10 @@
+"""Statistical functions."""
 __all__ = [
     'describe', 'summary', 'correlate', 'model', 'test_hypothesis']
-from pandas import concat, DataFrame, Series, NA
-from typing import Union, Optional, Dict, Iterable
-from numpy import array, ndarray, nan, r_, setdiff1d
 from functools import partial
+from typing import Union, Optional, Dict, Iterable
+from pandas import concat, DataFrame, Series, NA
+from numpy import array, ndarray, nan, r_, setdiff1d
 from statsmodels.discrete.discrete_model import Logit
 
 
@@ -12,7 +13,7 @@ def _select_cols(
         columns: Optional[Iterable] = None,
         second_var: list = None) -> ndarray:
     return array(
-        [col for col in columns]
+        list(col for col in columns)
         if columns is not None
         else (data.columns if second_var is None else second_var))
 
@@ -48,7 +49,9 @@ def _get_rows_after_dropna(data, col=None) -> int:
 
 
 def _get_rows_after_cum_dropna(
-        data, cols: list = [], col: str = None) -> int:
+        data, cols: list = None, col: str = None) -> int:
+    if not cols:
+        cols = []
     return data.dropna(subset=(cols + [col] if col else cols)).shape[0]
 
 
@@ -71,7 +74,8 @@ def summary(
         columns: Optional[Iterable] = None,
         per_column: bool = True,
         round_dec: int = 2) -> DataFrame:
-    """Summary statistics on NA values.
+    """
+    Summary statistics on NA values.
 
     Parameters
     ----------
@@ -155,7 +159,8 @@ def correlate(
         columns: Optional[Iterable] = None,
         drop: bool = True,
         **kwargs) -> DataFrame:
-    """Calculate correlations between columns in terms of NA values.
+    """
+    Calculate correlations between columns in terms of NA values.
 
     Parameters
     ----------
@@ -188,8 +193,9 @@ def describe(
         data: DataFrame,
         col_na: str,
         columns: Optional[Iterable] = None,
-        na_mapping: dict = {True: "NA", False: "Filled"}) -> DataFrame:
-    """Describe data grouped by a column with NA values.
+        na_mapping: dict = None) -> DataFrame:
+    """
+    Describe data grouped by a column with NA values.
 
     Parameters
     ----------
@@ -208,6 +214,8 @@ def describe(
     DataFrame
         Descriptive statistics (mean, median, etc.).
     """
+    if not na_mapping:
+        na_mapping = {True: "NA", False: "Filled"}
     cols = _select_cols(data, columns).tolist()
 
     descr_stats = data.loc[:, set(cols).difference([col_na])]\
@@ -223,9 +231,11 @@ def model(
         col_na: str,
         columns: Optional[Iterable] = None,
         intercept: bool = True,
-        fit_kws: dict = {},
-        logit_kws: dict = {}):
-    """Fit a logistic regression model to NA values encoded as 0 (non-missing)
+        fit_kws: dict = None,
+        logit_kws: dict = None):
+    """Logistic regression modeling.
+
+    Fit a logistic regression model to NA values encoded as 0 (non-missing)
     and 1 (NA) in column `col_na` with predictors passed with `columns`
     argument. Statsmodels package is used as a backend for model fitting.
 
@@ -263,6 +273,11 @@ def model(
     cols_pred = setdiff1d(cols, [col_na])
     data_copy = data.loc[:, cols_pred.tolist() + [col_na]].copy()
 
+    if not fit_kws:
+        fit_kws = {}
+    if not logit_kws:
+        logit_kws = {}
+
     if intercept:
         data_copy['(intercept)'] = 1.
         cols_pred = r_[['(intercept)'], cols_pred]
@@ -280,10 +295,12 @@ def test_hypothesis(
         data: DataFrame,
         col_na: str,
         test_fn: callable,
-        test_kws: dict = {},
+        test_kws: dict = None,
         columns: Optional[Union[Iterable[str], Dict[str, callable]]] = None,
         dropna: bool = True) -> Dict[str, object]:
-    """Test a statistical hypothesis. Typically, can be used to compare
+    """Test a statistical hypothesis.
+
+    Typically, can be used to compare
     two samples grouped by NA/non-NA values in another column.
 
     Parameters
@@ -351,6 +368,8 @@ def test_hypothesis(
 
     # Initializing
     results = {}
+    if not test_kws:
+        test_kws = {}
 
     # Selecting columns with data to test hypothesis on
     if columns is None:
@@ -358,8 +377,8 @@ def test_hypothesis(
 
     # Iterating over columns or column => func pairs and testing hypotheses
     if isinstance(columns, dict):
-        for col, fn in columns.items():
-            result = fn(*_get_groups(data, groups, col, dropna))
+        for col, func in columns.items():
+            result = func(*_get_groups(data, groups, col, dropna))
             results[col] = result
 
     elif isinstance(columns, Iterable):

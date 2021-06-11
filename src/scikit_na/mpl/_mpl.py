@@ -1,22 +1,23 @@
+"""Matplotlib-backed visualization"""
 __all__ = [
     'plot_corr', 'plot_stats', 'plot_heatmap', 'plot_hist', 'plot_kde']
-from .._stats import correlate, _select_cols
+from typing import Optional, Union, List, Iterable
 from pandas import DataFrame
 from pandas.core.indexes.base import Index
-from typing import Optional, Union, List, Iterable
 from numpy import (
     ndarray, fill_diagonal, nan)
 from seaborn import heatmap, histplot, kdeplot, barplot, diverging_palette
 from matplotlib.axes import SubplotBase
 from matplotlib.patches import Patch
+from .._stats import correlate, _select_cols
 
 
 def plot_corr(
         data: DataFrame,
         columns: Optional[Union[List, ndarray, Index]] = None,
         mask_diag: bool = True,
-        corr_kws: dict = {},
-        heat_kws: dict = {}) -> SubplotBase:
+        corr_kws: dict = None,
+        heat_kws: dict = None) -> SubplotBase:
     """Plot a correlation heatmap.
 
     Parameters
@@ -37,18 +38,18 @@ def plot_corr(
     matplotlib.axes._subplots.AxesSubplot
         Heatmap AxesSubplot object.
     """
+    if not heat_kws:
+        heat_kws = {
+            'vmin': -1, 'vmax': 1, 'annot': True, 'square': True,
+            'cmap': diverging_palette(240, 10, as_cmap=True)}
+    if not corr_kws:
+        corr_kws = {'method': 'spearman'}
+
     cols = _select_cols(data, columns)
 
-    corr_kws.setdefault('method', 'spearman')
     data_corr = correlate(data, columns=cols, **corr_kws)
     if mask_diag:
         fill_diagonal(data_corr.values, nan)
-
-    heat_kws.setdefault('vmin', -1)
-    heat_kws.setdefault('vmax', 1)
-    heat_kws.setdefault('annot', True)
-    heat_kws.setdefault('square', True)
-    heat_kws.setdefault('cmap', diverging_palette(240, 10, as_cmap=True))
 
     return heatmap(data_corr, **heat_kws)
 
@@ -152,12 +153,12 @@ def plot_heatmap(
         columns: Optional[Iterable] = None,
         droppable: bool = True,
         sort: bool = True,
-        cmap: Optional[Union[List, ndarray]] = ['green', 'orange', 'red'],
-        names: Optional[Union[List, ndarray]] = ['Filled', 'Droppable', 'NA'],
+        cmap: Optional[Union[List, ndarray]] = None,
+        names: Optional[Union[List, ndarray]] = None,
         yaxis: bool = False,
         xaxis: bool = True,
-        legend_kws: dict = {},
-        sb_kws: dict = {}) -> SubplotBase:
+        legend_kws: dict = None,
+        sb_kws: dict = None) -> SubplotBase:
     """NA heatmap. Plots NA values as red lines and normal values
     as black lines.
 
@@ -195,6 +196,13 @@ def plot_heatmap(
     matplotlib.axes._subplots.AxesSubplot
         AxesSubplot object.
     """
+    if not cmap:
+        cmap = ['green', 'orange', 'red']
+    if not names:
+        names = ['Filled', 'Droppable', 'NA']
+    if not sb_kws:
+        sb_kws = {'cbar': False}
+
     cols = _select_cols(data, columns).tolist()
     data_na = data.loc[:, cols].isna().copy()
     if sort:
@@ -210,20 +218,18 @@ def plot_heatmap(
     else:
         labels = [names[0], names[-1]]
 
-    sb_kws.setdefault('cbar', False)
-    legend_kws.setdefault('loc', 'upper center')
-    legend_kws.setdefault('bbox_to_anchor', (0.5, 1.15))
-    legend_kws.update({'ncol': len(labels)})
+    if not legend_kws:
+        legend_kws = {'bbox_to_anchor': (0.5, 1.15), 'loc': 'upper center', 'ncol': len(labels)}
 
-    ax = heatmap(data_na, cmap=cmap, **sb_kws)
-    ax.yaxis.set_visible(yaxis)
-    ax.xaxis.set_visible(xaxis)
+    ax_heatmap = heatmap(data_na, cmap=cmap, **sb_kws)
+    ax_heatmap.yaxis.set_visible(yaxis)
+    ax_heatmap.xaxis.set_visible(xaxis)
     legend_elements = [Patch(facecolor=cmap[0]), Patch(facecolor=cmap[-1])]
     if droppable:
         legend_elements.insert(1, Patch(facecolor=cmap[1]))
-    ax.legend(legend_elements, labels, **legend_kws)
+    ax_heatmap.legend(legend_elements, labels, **legend_kws)
 
-    return ax
+    return ax_heatmap
 
 
 # def plot_stairs(
@@ -331,8 +337,7 @@ def plot_hist(
         col_na_fmt: str = '"{}" is NA',
         stat: str = "density",
         common_norm: bool = False,
-        hist_kws: dict = {},
-        legend_kws: dict = {}) -> SubplotBase:
+        hist_kws: dict = None) -> SubplotBase:
     """Histogram plot to compare distributions of values in column `col`
     split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
 
@@ -356,15 +361,14 @@ def plot_hist(
     SubplotBase
         AxesSubplot returned by :py:meth:`seaborn.histplot`.
     """
+    if not hist_kws:
+        hist_kws = {'stat': stat, 'common_norm': common_norm}
+
     data_copy = data.copy()
     col_na_name = col_na_fmt.format(col_na)
     data_copy[col_na_name] = data_copy.loc[:, col_na].isna()
 
-    hist_kws.setdefault('stat', 'density')
-    hist_kws.setdefault('common_norm', False)
-    ax = histplot(x=col, hue=col_na_name, data=data_copy, **hist_kws)
-
-    return ax
+    return histplot(x=col, hue=col_na_name, data=data_copy, **hist_kws)
 
 
 def plot_kde(
@@ -373,7 +377,7 @@ def plot_kde(
         col_na: str,
         col_na_fmt: str = '"{}" is NA',
         common_norm: bool = False,
-        kde_kws: dict = {}) -> SubplotBase:
+        kde_kws: dict = None) -> SubplotBase:
     """KDE plot to compare distributions of values in column `col`
     split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
 
@@ -397,11 +401,11 @@ def plot_kde(
     SubplotBase
         AxesSubplot returned by :py:meth:`seaborn.kdeplot()`.
     """
+    if not kde_kws:
+        kde_kws = {'common_norm': common_norm}
+
     data_copy = data.copy()
     col_na_name = col_na_fmt.format(col_na)
     data_copy[col_na_name] = data_copy.loc[:, col_na].isna()
 
-    kde_kws.setdefault('common_norm', False)
-    ax = kdeplot(x=col, hue=col_na_name, data=data_copy, **kde_kws)
-
-    return ax
+    return kdeplot(x=col, hue=col_na_name, data=data_copy, **kde_kws)

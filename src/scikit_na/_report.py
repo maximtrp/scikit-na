@@ -1,11 +1,12 @@
+"""Interactive report."""
 __all__ = ['report']
+from typing import Optional, Iterable
+from ipywidgets import widgets
+from pandas import DataFrame
+from numpy import array, random, setdiff1d
 from .altair import plot_corr, plot_hist, plot_stairs, plot_heatmap
 from ._stats import (
     describe, summary, _select_cols, _get_nominal_cols, _get_numeric_cols)
-from pandas import DataFrame
-from ipywidgets import widgets
-from typing import Optional, Iterable
-from numpy import array, random, setdiff1d
 
 
 def report(
@@ -13,11 +14,42 @@ def report(
         columns: Optional[Iterable] = None,
         layout: widgets.Layout = None,
         round_dec: int = 2,
-        corr_kws: dict = {},
-        heat_kws: dict = {},
-        hist_kws: dict = {}):
+        corr_kws: dict = None,
+        heat_kws: dict = None,
+        hist_kws: dict = None):
+    """Interactive report.
 
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Optional[Iterable], optional
+        Columns names.
+    layout : widgets.Layout, optional
+        Layout object for use in GridBox.
+    round_dec : int, optional
+        Number of decimals for rounding.
+    corr_kws : dict, optional
+        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_corr()`.
+    heat_kws : dict, optional
+        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_heatmap()`.
+    hist_kws : dict, optional
+        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_hist()`.
+
+    Returns
+    -------
+    widgets.Tab
+        Interactive report with multiple tabs.
+    """
     from IPython.display import display
+
+    if not corr_kws:
+        corr_kws = {}
+    if not heat_kws:
+        heat_kws = {}
+    if not hist_kws:
+        hist_kws = {}
+
     cols = _select_cols(data, columns).tolist()
     na_cols = data.loc[:, cols].isna()\
         .sum(axis=0)\
@@ -112,7 +144,7 @@ def report(
     col_with_most_nas = data.loc[:, cols].isna().sum()\
         .sort_values().tail(1).index.item()
 
-    def _on_stats_col_select(names):
+    def _on_stats_col_select(_):
         # Clearing display
         stats_table.clear_output(wait=False)
         # Getting selected column with NA values
@@ -196,7 +228,6 @@ def report(
             display(
                 plot_corr(data, columns=names['new'], **corr_kws)
                 .properties(width=400, height=400))
-        pass
 
     corr_select_cols = widgets.SelectMultiple(
         options=na_cols, rows=10)
@@ -223,7 +254,7 @@ def report(
         [corr_image_box, corr_select_box])
 
     # DISTRIBUTIONS TAB
-    def _on_dist_col_select(names):
+    def _on_dist_col_select(_):
         col = dist_col_select.value
         na_col = na_col_select.value
         dist_kind = dist_kind_select.value
@@ -238,7 +269,7 @@ def report(
                         col=col,
                         col_na=na_col,
                         kind=dist_kind,
-                        **dist_kws).properties(width=400))
+                        **hist_kws).properties(width=400))
 
     # Choosing a random column (except the one with most NAs)
     random_col = random.choice(

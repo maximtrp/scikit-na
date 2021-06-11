@@ -7,4 +7,5 @@ scikit_na
 .. autofunction:: describe
 .. autofunction:: model
 .. autofunction:: report
+.. autofunction:: summary
 .. autofunction:: test_hypothesis
