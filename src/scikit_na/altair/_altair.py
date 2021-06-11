@@ -585,7 +585,7 @@ def view_dist(
 
     return interact(
         lambda Column, NA:
-            plot_dist(data, col=Column, col_na=NA, **kwargs)
+            plot_hist(data, col=Column, col_na=NA, **kwargs)
             if Column != NA
             else widgets.HTML(
                 '<em style="color: red">Note: select different columns</em>'),

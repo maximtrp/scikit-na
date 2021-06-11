@@ -4,11 +4,11 @@
 
 **scikit-na** is a Python package for missing data (NA) analysis. The package includes many functions for statistical analysis, modeling, and data visualization. The latter is done using two packages — [matplotlib](https://matplotlib.org/) and [Altair](https://altair-viz.github.io/).
 
-![Visualizations](img/titanic_vis.png)
+![Visualizations](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/titanic_vis.png)
 
 ## Features
 
-* Interactive report (based on [ipywidgets](ipywidgets.readthedocs.io/))
+* Interactive report (based on [ipywidgets](https://ipywidgets.readthedocs.io/))
 * Descriptive statistics
 * Regression modeling
 * Hypotheses tests
@@ -106,7 +106,7 @@ na.altair\
     .properties(width=150, height=150)
 ```
 
-![NA correlations](img/titanic_correlations.svg)
+![NA correlations](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/titanic_correlations.svg)
 
 ### Visualization
 
@@ -120,7 +120,7 @@ backend:
 na.altair.plot_heatmap(data)
 ```
 
-![NA heatmap](img/titanic_na_heatmap.svg)
+![NA heatmap](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/titanic_na_heatmap.svg)
 
 Droppables are those values that will be dropped if we simply use
 `pandas.DataFrame.dropna()` on the *whole dataset*.
@@ -135,7 +135,7 @@ number of NA values, by default):
 na.altair.plot_stairs(data)
 ```
 
-![NA stairsplot](img/titanic_na_stairsplot.svg)
+![NA stairsplot](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/titanic_na_stairsplot.svg)
 
 After dropping all NAs in `Cabin` column, we are left with 21 more NAs (in `Age`
 and `Embarked` columns). This plot also shows tooltips with exact numbers of NA
@@ -151,7 +151,7 @@ chart = na.altair.plot_hist(data, col='Pclass', col_na='Age')\
 chart.configure_axisX(labelAngle = 0)
 ```
 
-![NA histogram](img/titanic_hist.svg)
+![NA histogram](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/titanic_hist.svg)
 
 ### Regression model
 
@@ -203,7 +203,7 @@ Use `scikit_na.report()` function to show interactive report interface:
 na.report(data)
 ```
 
-![Report](img/report_summary.png)
+![Report](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/report_summary.png)
 
 ## Contribution
 
