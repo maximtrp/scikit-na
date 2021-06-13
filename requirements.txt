@@ -1,0 +1,7 @@
+numpy
+statsmodels
+seaborn
+pandas
+altair
+matplotlib
+ipywidgets
