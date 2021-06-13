@@ -4,7 +4,7 @@ from typing import Optional, Iterable
 from ipywidgets import widgets
 from pandas import DataFrame
 from numpy import array, random, setdiff1d
-from .altair import plot_corr, plot_hist, plot_stairs, plot_heatmap
+from .altair import plot_corr, plot_hist, plot_stairs, plot_heatmap, plot_kde
 from ._stats import (
     describe, summary, _select_cols, _get_nominal_cols, _get_numeric_cols)
 
@@ -16,7 +16,7 @@ def report(
         round_dec: int = 2,
         corr_kws: dict = None,
         heat_kws: dict = None,
-        hist_kws: dict = None):
+        dist_kws: dict = None):
     """Interactive report.
 
     Parameters
@@ -47,8 +47,8 @@ def report(
         corr_kws = {}
     if not heat_kws:
         heat_kws = {}
-    if not hist_kws:
-        hist_kws = {}
+    if not dist_kws:
+        dist_kws = {}
 
     cols = _select_cols(data, columns).tolist()
     na_cols = data.loc[:, cols].isna()\
@@ -258,18 +258,18 @@ def report(
         col = dist_col_select.value
         na_col = na_col_select.value
         dist_kind = dist_kind_select.value
+        plot_func = plot_hist if dist_kind == 'hist' else plot_kde
         dist_image.clear_output(wait=False)
         with dist_image:
             if col == na_col:
                 display(widgets.HTML("Select different columns"))
             else:
                 display(
-                    plot_hist(
+                    plot_func(
                         data,
                         col=col,
                         col_na=na_col,
-                        kind=dist_kind,
-                        **hist_kws).properties(width=400))
+                        **dist_kws).properties(width=400))
 
     # Choosing a random column (except the one with most NAs)
     random_col = random.choice(
@@ -278,13 +278,15 @@ def report(
     # Preparing widgets
     dist_image = widgets.Output()
     dist_image.append_display_data(
-        plot_hist(data, col=random_col, col_na=col_with_most_nas, **hist_kws)
+        plot_hist(data, col=random_col, col_na=col_with_most_nas, **dist_kws)
         .properties(width=400))
     dist_image_header = widgets.HTML('<b>Distributions of values</b>')
     dist_image_box = widgets.VBox(
         [dist_image_header, dist_image], layout={'align_items': 'center'})
 
-    dist_kind_select = widgets.Dropdown(options=['hist', 'kde'])
+    dist_kind_header = widgets.HTML('<b>Plot kind</b>')
+    dist_kind_select = widgets.Dropdown(
+        options=[('Histogram', 'hist'), ('Density', 'kde')])
     dist_kind_select.observe(_on_dist_col_select, names='value')
 
     na_col_header = widgets.HTML('<b>Column with NA values</b>')
@@ -298,8 +300,10 @@ def report(
     dist_col_select.value = random_col
     dist_col_select.observe(_on_dist_col_select, names='value')
 
-    selects_box = widgets.VBox(
-        [na_col_header, na_col_select, dist_col_header, dist_col_select],
+    selects_box = widgets.VBox([
+        na_col_header, na_col_select,
+        dist_col_header, dist_col_select,
+        dist_kind_header, dist_kind_select],
         layout={'align_items': 'center'})
     dist_tab = widgets.HBox(
         [dist_image_box, selects_box])

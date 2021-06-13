@@ -91,7 +91,7 @@ def plot_stats(
         y_data = na_info.iloc[idxint, :]
     x_data = na_info.columns
 
-    return barplot(x_data, y_data, **kwargs)
+    return barplot(x=x_data, y=y_data, **kwargs)
 
 
 # def plot_raw(
