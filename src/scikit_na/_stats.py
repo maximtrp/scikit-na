@@ -1,16 +1,16 @@
 """Statistical functions."""
 __all__ = [
-    'describe', 'summary', 'correlate', 'model', 'test_hypothesis']
+    'describe', 'summary', 'correlate', 'model', 'stairs', 'test_hypothesis']
 from functools import partial
-from typing import Union, Optional, Dict, Iterable
+from typing import Union, Optional, Dict, Sequence
 from pandas import concat, DataFrame, Series, NA
-from numpy import array, ndarray, nan, r_, setdiff1d
+from numpy import array, argmin, ndarray, nan, r_, setdiff1d
 from statsmodels.discrete.discrete_model import Logit
 
 
 def _select_cols(
         data: DataFrame,
-        columns: Optional[Iterable] = None,
+        columns: Optional[Sequence] = None,
         second_var: list = None) -> ndarray:
     return array(
         list(col for col in columns)
@@ -20,7 +20,7 @@ def _select_cols(
 
 def _get_nominal_cols(
         data: DataFrame,
-        columns: Optional[Iterable] = None):
+        columns: Optional[Sequence] = None):
     cols = _select_cols(data, columns)
     return (data[cols].dtypes == object)\
         .replace({False: NA})\
@@ -30,7 +30,7 @@ def _get_nominal_cols(
 
 def _get_numeric_cols(
         data: DataFrame,
-        columns: Optional[Iterable] = None):
+        columns: Optional[Sequence] = None):
     cols = _select_cols(data, columns)
     return ((data[cols].dtypes == float)
             | (data[cols].dtypes == int))\
@@ -71,7 +71,7 @@ def _get_total_na_count(data: DataFrame, cols) -> int:
 
 def summary(
         data: DataFrame,
-        columns: Optional[Iterable] = None,
+        columns: Optional[Sequence] = None,
         per_column: bool = True,
         round_dec: int = 2) -> DataFrame:
     """
@@ -81,7 +81,7 @@ def summary(
     ----------
     data : DataFrame
         Data object.
-    columns : Optional[Iterable]
+    columns : Optional[Sequence]
         Columns or indices to observe.
     per_column : bool = True, optional
         Show stats per each selected column.
@@ -154,9 +154,61 @@ def summary(
     return na_df
 
 
+def stairs(
+        data: DataFrame,
+        columns: Optional[Sequence] = None,
+        xlabel: str = 'Columns',
+        ylabel: str = 'Instances',
+        tooltip_label: str = 'Size difference',
+        dataset_label: str = '(Whole dataset)'):
+    """DataFrame shrinkage on cumulative :py:meth:`pandas.DataFrame.dropna()`.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Optional[Sequence], optional
+        Columns names.
+    xlabel : str, optional
+        X axis label.
+    ylabel : str, optional
+        Y axis label.
+    tooltip_label : str, optional
+        Tooltip label.
+    dataset_label : str, optional
+        Label for a whole dataset.
+
+    Returns
+    -------
+    DataFrame
+        Dataset shrinkage results after cumulative
+        :py:meth:`pandas.DataFrame.dropna()`.
+    """
+    cols = _select_cols(data, columns).tolist()
+    stairs_values = []
+    stairs_labels = []
+
+    while len(cols) > 0:
+        get_rows = partial(
+            _get_rows_after_cum_dropna, data, stairs_labels)
+        rows_after_dropna = list(map(get_rows, cols))
+        stairs_values.append(min(rows_after_dropna))
+        stairs_labels.append(cols[argmin(rows_after_dropna)])
+        cols.remove(cols[argmin(rows_after_dropna)])
+
+    stairs_values = array([data.shape[0]] + stairs_values)
+    stairs_labels = [dataset_label] + stairs_labels
+    data_sizes = DataFrame({
+        xlabel: stairs_labels,
+        ylabel: stairs_values
+    })
+    data_sizes[tooltip_label] = data_sizes[ylabel].diff().fillna(0)
+    return data_sizes
+
+
 def correlate(
         data: DataFrame,
-        columns: Optional[Iterable] = None,
+        columns: Optional[Sequence] = None,
         drop: bool = True,
         **kwargs) -> DataFrame:
     """
@@ -192,7 +244,7 @@ def correlate(
 def describe(
         data: DataFrame,
         col_na: str,
-        columns: Optional[Iterable] = None,
+        columns: Optional[Sequence] = None,
         na_mapping: dict = None) -> DataFrame:
     """
     Describe data grouped by a column with NA values.
@@ -203,7 +255,7 @@ def describe(
         Input data.
     col_na : str
         Column with NA values to group the other data by.
-    columns : Optional[Iterable]
+    columns : Optional[Sequence]
         Columns to calculate descriptive statistics on.
     na_mapping : dict, optional
         Dictionary with NA mappings. By default,
@@ -229,7 +281,7 @@ def describe(
 def model(
         data: DataFrame,
         col_na: str,
-        columns: Optional[Iterable] = None,
+        columns: Optional[Sequence] = None,
         intercept: bool = True,
         fit_kws: dict = None,
         logit_kws: dict = None):
@@ -245,7 +297,7 @@ def model(
         Input data.
     col_na : str
         Column with NA values to use as a dependent variable.
-    columns : Optional[Iterable]
+    columns : Optional[Sequence]
         Columns to use as independent variables.
     intercept : bool, optional
         Fit intercept.
@@ -296,7 +348,7 @@ def test_hypothesis(
         col_na: str,
         test_fn: callable,
         test_kws: dict = None,
-        columns: Optional[Union[Iterable[str], Dict[str, callable]]] = None,
+        columns: Optional[Union[Sequence[str], Dict[str, callable]]] = None,
         dropna: bool = True) -> Dict[str, object]:
     """Test a statistical hypothesis.
 
@@ -310,7 +362,7 @@ def test_hypothesis(
     col_na : str
         Column to group values by. :py:meth:`pandas.Series.isna()` method
         is applied before grouping.
-    columns : Optional[Union[Iterable[str], Dict[str, callable]]]
+    columns : Optional[Union[Sequence[str], Dict[str, callable]]]
         Columns to test hypotheses on.
     test_fn : callable, optional
         Function to test hypothesis on NA/non-NA data.
@@ -381,7 +433,7 @@ def test_hypothesis(
             result = func(*_get_groups(data, groups, col, dropna))
             results[col] = result
 
-    elif isinstance(columns, Iterable):
+    elif isinstance(columns, Sequence):
         for col in columns:
             result = test_fn(
                 *_get_groups(data, groups, col, dropna), **test_kws)

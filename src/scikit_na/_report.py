@@ -1,6 +1,6 @@
 """Interactive report."""
 __all__ = ['report']
-from typing import Optional, Iterable
+from typing import Optional, Sequence
 from ipywidgets import widgets
 from pandas import DataFrame
 from numpy import array, random, setdiff1d
@@ -11,7 +11,7 @@ from ._stats import (
 
 def report(
         data: DataFrame,
-        columns: Optional[Iterable] = None,
+        columns: Optional[Sequence[str]] = None,
         layout: widgets.Layout = None,
         round_dec: int = 2,
         corr_kws: dict = None,
@@ -23,7 +23,7 @@ def report(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Iterable], optional
+    columns : Optional[Sequence[str]], optional
         Columns names.
     layout : widgets.Layout, optional
         Layout object for use in GridBox.

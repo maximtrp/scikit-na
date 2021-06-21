@@ -1,17 +1,17 @@
 """Altair-backed plotting functions."""
 __all__ = [
     'plot_hist', 'plot_kde', 'plot_corr',
-    'plot_scatter', 'plot_stairs', 'plot_heatmap']
-from typing import Union, Optional, List, Iterable
-from functools import partial
+    'plot_scatter', 'plot_stairs', 'plot_stairbars', 'plot_heatmap']
+from typing import Optional, Sequence
 from numbers import Integral
 from ipywidgets import widgets, interact
-from numpy import array, arange, ndarray, argmin, r_, nan, fill_diagonal
-from pandas import DataFrame, Index
+from numpy import arange, r_, nan, fill_diagonal
+from pandas import DataFrame
 from altair import (
     Chart, Color, condition, data_transformers, selection_multi,
     Scale, Text, value, X, Y)
-from .._stats import _get_rows_after_cum_dropna, _select_cols, correlate
+from .._stats import (
+    _select_cols, correlate, stairs)
 # Allow plotting mote than 5000 rows
 data_transformers.disable_max_rows()
 
@@ -338,7 +338,7 @@ def plot_scatter(
 
 def plot_stairs(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Sequence[str]] = None,
         xlabel: str = 'Columns',
         ylabel: str = 'Instances',
         tooltip_label: str = 'Size difference',
@@ -359,7 +359,7 @@ def plot_stairs(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Union[List, ndarray, Index]], optional
+    columns : Optional[Sequence[str]], optional
         Columns that are to be displayed on a plot.
     xlabel : str, optional
         X axis label.
@@ -392,25 +392,8 @@ def plot_stairs(
     if not y_kws:
         y_kws = {'shorthand': ylabel}
 
-    cols = _select_cols(data, columns).tolist()
-    stairs_values = []
-    stairs_labels = []
-
-    while len(cols) > 0:
-        get_rows = partial(
-            _get_rows_after_cum_dropna, data, stairs_labels)
-        rows_after_dropna = list(map(get_rows, cols))
-        stairs_values.append(min(rows_after_dropna))
-        stairs_labels.append(cols[argmin(rows_after_dropna)])
-        cols.remove(cols[argmin(rows_after_dropna)])
-
-    stairs_values = array([data.shape[0]] + stairs_values)
-    stairs_labels = [dataset_label] + stairs_labels
-    data_sizes = DataFrame({
-        xlabel: stairs_labels,
-        ylabel: stairs_values
-    })
-    data_sizes[tooltip_label] = data_sizes[ylabel].diff().fillna(0)
+    data_sizes = stairs(
+        data, columns, xlabel, ylabel, tooltip_label, dataset_label)
 
     chart = Chart(data_sizes, **chart_kws)\
         .mark_area(**area_kws)\
@@ -424,10 +407,82 @@ def plot_stairs(
         .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
+def plot_stairbars(
+        data: DataFrame,
+        columns: Optional[Sequence[str]] = None,
+        xlabel: str = 'Columns',
+        ylabel: str = 'Instances',
+        tooltip_label: str = 'Size difference',
+        dataset_label: str = '(Whole dataset)',
+        font_size: int = 14,
+        area_kws: dict = None,
+        chart_kws: dict = None,
+        x_kws: dict = None,
+        y_kws: dict = None):
+    """Stairbars.
+
+    Plots the changes in dataset size (rows/instances number) after applying
+    :py:meth:`pandas.DataFrame.dropna()` to each column cumulatively.
+
+    Columns are sorted by maximum influence on dataset size.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Optional[Sequence[str]], optional
+        Columns that are to be displayed on a plot.
+    xlabel : str, optional
+        X axis label.
+    ylabel : str, optional
+        Y axis label.
+    tooltip_label : str, optional
+        Label for differences in dataset size that is displayed on a tooltip.
+    dataset_label : str, optional
+        Label for the whole dataset (before dropping any NAs).
+    area_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart.mark_area()` method.
+    chart_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Chart()` class.
+    x_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.X()` class.
+    y_kws : dict, optional
+        Keyword arguments passed to :py:meth:`altair.Y()` class.
+
+    Returns
+    -------
+    altair.Chart
+        Chart object.
+    """
+    if not area_kws:
+        area_kws = {'interpolate': 'step-after', 'line': True}
+    if not chart_kws:
+        chart_kws = {}
+    if not x_kws:
+        x_kws = {'sort': '-y', 'shorthand': xlabel}
+    if not y_kws:
+        y_kws = {'shorthand': ylabel}
+
+    data_sizes = stairs(
+        data, columns, xlabel, ylabel, tooltip_label, dataset_label)
+
+    chart = Chart(data_sizes, **chart_kws)\
+        .mark_bar(**area_kws)\
+        .encode(
+            x=X(**x_kws),
+            y=Y(**y_kws),
+            tooltip=[xlabel, ylabel, tooltip_label]
+        )
+    return chart\
+        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
+        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+
+
+
 def plot_heatmap(
         data: DataFrame,
-        columns: Optional[Iterable] = None,
-        tooltip_cols: Optional[Iterable] = None,
+        columns: Optional[Sequence[str]] = None,
+        tooltip_cols: Optional[Sequence[str]] = None,
         names: list = None,
         sort: bool = True,
         droppable: bool = True,
@@ -449,9 +504,9 @@ def plot_heatmap(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Iterable], optional
+    columns : Optional[Sequence[str]], optional
         Columns that are to be displayed on a plot.
-    tooltip_cols : Optional[Iterable], optional
+    tooltip_cols : Optional[Sequence[str]], optional
         Columns to be used in tooltips.
     names : list, optional
         Values labels passed as a list.
@@ -553,7 +608,7 @@ def plot_heatmap(
 
 def plot_corr(
         data: DataFrame,
-        columns: Optional[Iterable] = None,
+        columns: Optional[Sequence[str]] = None,
         mask_diag: bool = True,
         annot_color: str = "black",
         round_sgn: int = 2,
@@ -571,7 +626,7 @@ def plot_corr(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Iterable]
+    columns : Optional[Sequence[str]]
         Columns names.
     mask_diag : bool = True
         Mask diagonal on heatmap.
@@ -625,7 +680,7 @@ def plot_corr(
 
 def view_dist(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Sequence[str]] = None,
         **kwargs):
     """Interactive distribution widget.
 
@@ -636,7 +691,7 @@ def view_dist(
     ----------
     data : DataFrame
         Input data.
-    columns : Union[list, ndarray, Index] = None
+    columns : Optional[Sequence[str]]
         Column names.
 
     Returns

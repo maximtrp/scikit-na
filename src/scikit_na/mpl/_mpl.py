@@ -1,11 +1,9 @@
 """Matplotlib-backed visualization"""
 __all__ = [
     'plot_corr', 'plot_stats', 'plot_heatmap', 'plot_hist', 'plot_kde']
-from typing import Optional, Union, List, Iterable
+from typing import Optional, Sequence
 from pandas import DataFrame
-from pandas.core.indexes.base import Index
-from numpy import (
-    ndarray, fill_diagonal, nan)
+from numpy import fill_diagonal, nan
 from seaborn import heatmap, histplot, kdeplot, barplot, diverging_palette
 from matplotlib.axes import SubplotBase
 from matplotlib.patches import Patch
@@ -14,7 +12,7 @@ from .._stats import correlate, _select_cols
 
 def plot_corr(
         data: DataFrame,
-        columns: Optional[Union[List, ndarray, Index]] = None,
+        columns: Optional[Sequence[str]] = None,
         mask_diag: bool = True,
         corr_kws: dict = None,
         heat_kws: dict = None) -> SubplotBase:
@@ -24,7 +22,7 @@ def plot_corr(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Union[List, ndarray, Index]], optional
+    columns : Optional[Sequence[str]], optional
         Columns names.
     mask_diag : bool = True
         Mask diagonal on heatmap.
@@ -150,11 +148,11 @@ def plot_stats(
 
 def plot_heatmap(
         data: DataFrame,
-        columns: Optional[Iterable] = None,
+        columns: Optional[Sequence[str]] = None,
         droppable: bool = True,
         sort: bool = True,
-        cmap: Optional[Union[List, ndarray]] = None,
-        names: Optional[Union[List, ndarray]] = None,
+        cmap: Optional[Sequence[str]] = None,
+        names: Optional[Sequence[str]] = None,
         yaxis: bool = False,
         xaxis: bool = True,
         legend_kws: dict = None,
@@ -166,18 +164,18 @@ def plot_heatmap(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Iterable], optional
+    columns : Optional[Sequence[str]], optional
         Columns names.
     droppable : bool, optional
         Show values to be dropped by :py:meth:`pandas.DataFrame.dropna()`
         method.
     sort : bool, optional
         Sort DataFrame by selected columns.
-    cmap : Optional[Union[List, ndarray]], optional
+    cmap : Optional[Sequence[str]], optional
         Heatmap and legend colormap: non-missing values, droppable values,
         NA values, correspondingly. Passed to :py:meth:`seaborn.heatmap()`
         method.
-    names : Optional[Union[List, ndarray]], optional
+    names : Optional[Sequence[str]], optional
         Legend labels: non-missing values, droppable values,
         NA values, correspondingly.
     yaxis : bool, optional
