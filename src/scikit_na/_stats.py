@@ -352,8 +352,9 @@ def test_hypothesis(
         dropna: bool = True) -> Dict[str, object]:
     """Test a statistical hypothesis.
 
-    Typically, can be used to compare
-    two samples grouped by NA/non-NA values in another column.
+    This function can be used to find evidence against missing
+    completely at random (MCAR) mechanism by comparing two samples grouped
+    by missingness in another column.
 
     Parameters
     ----------
