@@ -4,7 +4,7 @@ __all__ = [
 from functools import partial
 from typing import Union, Optional, Dict, Sequence
 from pandas import concat, DataFrame, Series, NA
-from numpy import array, argmin, ndarray, nan, r_, setdiff1d
+from numpy import array, ndarray, nan, r_, setdiff1d
 from statsmodels.discrete.discrete_model import Logit
 
 
@@ -39,23 +39,32 @@ def _get_numeric_cols(
         .index.values
 
 
-def _get_unique_na(data, cols, col) -> int:
-    return data.dropna(subset=set(cols).difference([col]))\
-        .loc[:, col].isna().sum()
+def _get_unique_na(
+        nas: Series,
+        data: DataFrame,
+        col: str) -> int:
+    return (nas & data[col].isna()).sum()
 
 
-def _get_rows_after_dropna(data, col=None) -> int:
-    return data.dropna(subset=([col] if col else None)).shape[0]
+def _get_rows_after_dropna(
+        data: DataFrame,
+        col: str=None) -> int:
+    return (data.shape[0] - data.loc[:, col].isna().sum())\
+        if col else data.dropna().shape[0]
 
 
 def _get_rows_after_cum_dropna(
-        data, cols: list = None, col: str = None) -> int:
+        data: DataFrame,
+        cols: list = None,
+        col: str = None) -> int:
     if not cols:
         cols = []
     return data.dropna(subset=(cols + [col] if col else cols)).shape[0]
 
 
-def _get_abs_na_count(data: DataFrame, cols) -> Series:
+def _get_abs_na_count(
+        data: DataFrame,
+        cols: list) -> Series:
     return data.loc[:, cols].isna().sum(axis=0)
 
 
@@ -65,7 +74,9 @@ def _get_na_perc(
     return na_abs / data.shape[0] * 100
 
 
-def _get_total_na_count(data: DataFrame, cols) -> int:
+def _get_total_na_count(
+        data: DataFrame,
+        cols: list) -> int:
     return data.loc[:, cols].isna().sum().sum()
 
 
@@ -95,10 +106,11 @@ def summary(
     """
     cols = _select_cols(data, columns)
     data_copy = data.loc[:, cols].copy()
+    na_by_inst = (data_copy.isna().sum(axis=1) == 1)
     na_total = _get_total_na_count(data_copy, cols)
 
     if per_column:
-        get_unique_na = partial(_get_unique_na, data_copy, cols)
+        get_unique_na = partial(_get_unique_na, na_by_inst, data_copy)
         get_rows_after_dropna = partial(_get_rows_after_dropna, data_copy)
 
         na_abs_count = _get_abs_na_count(data_copy, cols).rename('NA count')
@@ -184,17 +196,22 @@ def stairs(
         Dataset shrinkage results after cumulative
         :py:meth:`pandas.DataFrame.dropna()`.
     """
+    data_copy = data.copy()
     cols = _select_cols(data, columns).tolist()
     stairs_values = []
     stairs_labels = []
 
     while len(cols) > 0:
-        get_rows = partial(
-            _get_rows_after_cum_dropna, data, stairs_labels)
-        rows_after_dropna = list(map(get_rows, cols))
-        stairs_values.append(min(rows_after_dropna))
-        stairs_labels.append(cols[argmin(rows_after_dropna)])
-        cols.remove(cols[argmin(rows_after_dropna)])
+        cols_by_na = data_copy.isna().sum(axis=0).sort_values(ascending=False)
+        col_max_na = cols_by_na.head(1)
+        col_max_na_name = col_max_na.index.item()
+        col_max_na_val = col_max_na.item()
+        if not col_max_na_val:
+            break
+        stairs_values.append(data_copy.shape[0] - col_max_na_val)
+        stairs_labels.append(col_max_na_name)
+        data_copy = data_copy.dropna(subset=[col_max_na_name])
+        cols = data_copy.columns.tolist()
 
     stairs_values = array([data.shape[0]] + stairs_values)
     stairs_labels = [dataset_label] + stairs_labels
