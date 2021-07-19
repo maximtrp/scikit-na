@@ -145,8 +145,11 @@ def summary(
         na_percentage_total = na_total / data_copy.shape[0]\
             / data_copy.shape[1] * 100
         total_cells = data_copy.shape[0] * data_copy.shape[1]
+        na_col_raw = data_copy.isna().sum()
+        na_col_num = na_col_raw[na_col_raw > 0].index.size
         na_df = DataFrame({
             'Total columns': data_copy.shape[1],
+            'Columns with NA': na_col_num,
             'Total rows': data_copy.shape[0],
             'Rows with NA': data_copy.shape[0] - rows_after_dropna,
             'Rows without NA': rows_after_dropna,
