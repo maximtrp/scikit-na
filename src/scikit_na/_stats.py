@@ -48,7 +48,7 @@ def _get_unique_na(
 
 def _get_rows_after_dropna(
         data: DataFrame,
-        col: str=None) -> int:
+        col: str = None) -> int:
     return (data.shape[0] - data.loc[:, col].isna().sum())\
         if col else data.dropna().shape[0]
 
@@ -146,10 +146,12 @@ def summary(
             / data_copy.shape[1] * 100
         total_cells = data_copy.shape[0] * data_copy.shape[1]
         na_col_raw = data_copy.isna().sum()
-        na_col_num = na_col_raw[na_col_raw > 0].index.size
+        na_col_num = na_col_raw[na_col_raw > 0].size
+        na_col_only = (na_col_raw == data_copy.shape[0]).sum().size
         na_df = DataFrame({
             'Total columns': data_copy.shape[1],
             'Columns with NA': na_col_num,
+            'Columns with NA only (all missing)': na_col_only,
             'Total rows': data_copy.shape[0],
             'Rows with NA': data_copy.shape[0] - rows_after_dropna,
             'Rows without NA': rows_after_dropna,
