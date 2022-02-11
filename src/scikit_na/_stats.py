@@ -260,7 +260,7 @@ def correlate(
         _cols = set(cols).intersection(cols_with_na)
     else:
         _cols = set(cols)
-    return data.loc[:, _cols].isna().corr(**kwargs)
+    return data.loc[:, list(_cols)].isna().corr(**kwargs)
 
 
 def describe(
@@ -292,7 +292,7 @@ def describe(
         na_mapping = {True: "NA", False: "Filled"}
     cols = _select_cols(data, columns).tolist()
 
-    descr_stats = data.loc[:, set(cols).difference([col_na])]\
+    descr_stats = data.loc[:, list(set(cols).difference([col_na]))]\
         .groupby(data[col_na].isna().replace(na_mapping))\
         .describe()\
         .T\

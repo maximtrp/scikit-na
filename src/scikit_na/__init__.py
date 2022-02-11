@@ -4,4 +4,4 @@ from . import altair  # noqa: F401
 from ._stats import *  # noqa: F401, F403
 from ._report import *  # noqa: F401, F403
 
-__version__ = '0.0.8'
+__version__ = '0.0.9'
