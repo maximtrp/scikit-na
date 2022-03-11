@@ -8,7 +8,7 @@ from ipywidgets import widgets, interact
 from numpy import arange, r_, nan, fill_diagonal
 from pandas import DataFrame
 from altair import (
-    Chart, Color, condition, data_transformers, selection_multi,
+    Axis, Chart, Color, condition, data_transformers, selection_multi,
     Scale, Text, value, X, Y)
 from .._stats import (
     _select_cols, correlate, stairs)
@@ -545,7 +545,7 @@ def plot_heatmap(
     if not x_kws:
         x_kws = {'sort': None, 'shorthand': xlabel, 'type': 'nominal'}
     if not y_kws:
-        y_kws = {'sort': None, 'shorthand': ylabel, 'type': 'ordinal'}
+        y_kws = {'sort': None, 'shorthand': ylabel, 'type': 'ordinal', 'axis': Axis(labelOverlap='greedy')}
     if not names:
         names = ['Filled', 'NA', 'Droppable']
     if not color_kws:
