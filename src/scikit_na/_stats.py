@@ -147,7 +147,7 @@ def summary(
         total_cells = data_copy.shape[0] * data_copy.shape[1]
         na_col_raw = data_copy.isna().sum()
         na_col_num = na_col_raw[na_col_raw > 0].size
-        na_col_only = (na_col_raw == data_copy.shape[0]).sum().size
+        na_col_only = (na_col_raw == data_copy.shape[0]).sum()
         na_df = DataFrame({
             'Total columns': data_copy.shape[1],
             'Columns with NA': na_col_num,
