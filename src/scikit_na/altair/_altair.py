@@ -5,7 +5,7 @@ __all__ = [
 from typing import Optional, Sequence
 from numbers import Integral
 from ipywidgets import widgets, interact
-from numpy import arange, r_, nan, fill_diagonal
+from numpy import arange, nan, fill_diagonal
 from pandas import DataFrame
 from altair import (
     Axis, Chart, Color, condition, data_transformers, selection_multi,
@@ -401,7 +401,7 @@ def plot_stairs(
             x=X(**x_kws),
             y=Y(**y_kws),
             tooltip=[xlabel, ylabel, tooltip_label]
-        )
+    )
     return chart\
         .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
         .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
@@ -472,17 +472,15 @@ def plot_stairbars(
             x=X(**x_kws),
             y=Y(**y_kws),
             tooltip=[xlabel, ylabel, tooltip_label]
-        )
+    )
     return chart\
         .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
         .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
-
 def plot_heatmap(
         data: DataFrame,
         columns: Optional[Sequence[str]] = None,
-        tooltip_cols: Optional[Sequence[str]] = None,
         names: list = None,
         sort: bool = True,
         droppable: bool = True,
@@ -506,8 +504,6 @@ def plot_heatmap(
         Input data.
     columns : Optional[Sequence[str]], optional
         Columns that are to be displayed on a plot.
-    tooltip_cols : Optional[Sequence[str]], optional
-        Columns to be used in tooltips.
     names : list, optional
         Values labels passed as a list.
         The first element corresponds to non-missing values,
@@ -545,7 +541,8 @@ def plot_heatmap(
     if not x_kws:
         x_kws = {'sort': None, 'shorthand': xlabel, 'type': 'nominal'}
     if not y_kws:
-        y_kws = {'sort': None, 'shorthand': ylabel, 'type': 'ordinal', 'axis': Axis(labelOverlap='greedy')}
+        y_kws = {'sort': None, 'shorthand': ylabel,
+                 'type': 'ordinal', 'axis': Axis(labelOverlap='greedy')}
     if not names:
         names = ['Filled', 'NA', 'Droppable']
     if not color_kws:
@@ -557,15 +554,13 @@ def plot_heatmap(
                 range=["green", "red", "orange"])
         }
     if not rect_kws:
-        rect_kws = {}
+        rect_kws = {"clip": True}
 
     cols = _select_cols(data, columns)
-    tt_cols = _select_cols(data, tooltip_cols, [])
 
-    data_copy = data.loc[:, r_[cols, tt_cols]].copy()
-    data_copy.loc[:, cols] = data_copy.loc[:, cols].isna()
+    data_copy = data.loc[:, cols].copy().isna()
     if sort:
-        cols_sorted = data_copy.loc[:, cols]\
+        cols_sorted = data_copy\
             .sum()\
             .sort_values(ascending=False)\
             .index.tolist()
@@ -573,21 +568,21 @@ def plot_heatmap(
         x_kws.update({'sort': cols_sorted})
 
     if droppable:
-        non_na_mask = ~data_copy.loc[:, cols].values
-        na_rows_mask = data_copy.loc[:, cols].any(axis=1).values[:, None]
+        non_na_mask = ~data_copy.values
+        na_rows_mask = data_copy.any(
+            axis=1).values[:, None]
         droppable_mask = non_na_mask & na_rows_mask
-        data_copy.loc[:, cols] = data_copy.loc[:, cols].astype(int)
-        data_copy.loc[:, cols] = data_copy.loc[:, cols]\
+        data_copy = data_copy.astype(int)\
             .mask(droppable_mask, other=2)
     else:
-        data_copy.loc[:, cols] = data_copy.loc[:, cols].astype(int)
+        data_copy = data_copy.astype(int)
 
-    data_copy.loc[:, cols] = data_copy.loc[:, cols].replace(
+    data_copy = data_copy.replace(
         dict(zip([0, 1, 2], names)))
 
     data_copy[ylabel] = arange(data.shape[0])
     data_copy = data_copy.melt(
-        id_vars=r_[[ylabel], tt_cols],
+        id_vars=[ylabel],
         value_vars=cols,
         var_name=xlabel,
         value_name=zlabel)
@@ -598,8 +593,7 @@ def plot_heatmap(
             x=X(**x_kws),
             y=Y(**y_kws),
             color=Color(**color_kws),
-            tooltip=tt_cols.tolist()
-        )
+    )
 
     return chart\
         .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\

@@ -114,7 +114,7 @@ def report(
 
     select_vis_cols = widgets.SelectMultiple(options=cols, rows=6)
     select_vis_cols.observe(_on_vis_col_select, names='value')
-    select_vis_accordion = widgets.Accordion(children=[select_cols])
+    select_vis_accordion = widgets.Accordion(children=[select_vis_cols])
     select_vis_accordion.set_title(0, 'Columns selection')
     select_vis_accordion.selected_index = 0
 
@@ -147,6 +147,7 @@ def report(
     def _on_stats_col_select(_):
         # Clearing display
         stats_table.clear_output(wait=False)
+        stats_table2.clear_output(wait=False)
         # Getting selected column with NA values
         _col_na = select_stats_col_na.value
         # Getting selected columns
@@ -157,15 +158,21 @@ def report(
         _cols_nominal = _get_nominal_cols(data, _cols)
 
         with stats_table:
-            display(
-                describe(
-                    data, col_na=_col_na, columns=_cols_numeric)
-                .round(round_dec))
+            try:
+                display(
+                    describe(
+                        data, col_na=_col_na, columns=_cols_numeric)
+                    .round(round_dec))
+            except:
+                display(widgets.HTML('Please select numeric columns to describe'))
         with stats_table2:
-            display(
-                describe(
-                    data, col_na=_col_na, columns=_cols_nominal)
-                .round(round_dec))
+            try:
+                display(
+                    describe(
+                        data, col_na=_col_na, columns=_cols_nominal)
+                    .round(round_dec))
+            except:
+                display(widgets.HTML('Please select nominal columns to describe'))
 
     # Setting up dropdown and select elements for choosing columns
     select_stats_col_na_header = widgets.HTML(

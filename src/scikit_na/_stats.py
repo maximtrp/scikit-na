@@ -15,7 +15,7 @@ def _select_cols(
     return array(
         list(col for col in columns)
         if columns is not None
-        else (data.columns if second_var is None else second_var))
+        else (data.columns if second_var is None or len(second_var) == 0 else second_var))
 
 
 def _get_nominal_cols(
@@ -106,7 +106,7 @@ def summary(
     """
     cols = _select_cols(data, columns)
     data_copy = data.loc[:, cols].copy()
-    na_by_inst = (data_copy.isna().sum(axis=1) == 1)
+    na_by_inst = data_copy.isna().sum(axis=1) == 1
     na_total = _get_total_na_count(data_copy, cols)
 
     if per_column:
@@ -201,8 +201,8 @@ def stairs(
         Dataset shrinkage results after cumulative
         :py:meth:`pandas.DataFrame.dropna()`.
     """
-    data_copy = data.copy()
     cols = _select_cols(data, columns).tolist()
+    data_copy = data.loc[:, cols].copy()
     stairs_values = []
     stairs_labels = []
 
