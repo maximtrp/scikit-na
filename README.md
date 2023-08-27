@@ -2,7 +2,7 @@
 
 [![Documentation Status](https://readthedocs.org/projects/scikit-na/badge/?version=latest)](https://scikit-na.readthedocs.io/en/latest/?badge=latest)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/122fd9ccc0da40a4a6cfce8eac592fd2)](https://www.codacy.com/gh/maximtrp/scikit-na/dashboard?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=maximtrp/scikit-na&amp;utm_campaign=Badge_Grade)
-[![Downloads](https://pepy.tech/badge/scikit-na)](https://pepy.tech/project/scikit-na)
+[![Downloads](https://static.pepy.tech/badge/scikit-na)](https://pepy.tech/project/scikit-na)
 ![PyPI](https://img.shields.io/pypi/v/scikit-na)
 
 **scikit-na** is a Python package for missing data (NA) analysis. The package includes many functions for statistical analysis, modeling, and data visualization. The latter is done using two packages — [matplotlib](https://matplotlib.org/) and [Altair](https://altair-viz.github.io/).
