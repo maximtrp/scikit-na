@@ -18,8 +18,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'scikit-na'
-copyright = '2021, Maksim Terpilowski'
-author = 'Maksim Terpilowski'
+copyright = '2023, Maksim Terpilovskii'
+author = 'Maksim Terpilovskii'
 
 
 # -- General configuration ---------------------------------------------------
