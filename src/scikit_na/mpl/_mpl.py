@@ -1,21 +1,22 @@
 """Matplotlib-backed visualization"""
-__all__ = [
-    'plot_corr', 'plot_stats', 'plot_heatmap', 'plot_hist', 'plot_kde']
+
+__all__ = ["plot_corr", "plot_stats", "plot_heatmap", "plot_hist", "plot_kde"]
 from typing import Optional, Sequence
 from pandas import DataFrame
 from numpy import fill_diagonal, nan
 from seaborn import heatmap, histplot, kdeplot, barplot, diverging_palette
-from matplotlib.axes import SubplotBase
+from matplotlib.axes import Axes
 from matplotlib.patches import Patch
 from .._stats import correlate, _select_cols
 
 
 def plot_corr(
-        data: DataFrame,
-        columns: Optional[Sequence[str]] = None,
-        mask_diag: bool = True,
-        corr_kws: dict = None,
-        heat_kws: dict = None) -> SubplotBase:
+    data: DataFrame,
+    columns: Optional[Sequence[str]] = None,
+    mask_diag: bool = True,
+    corr_kws: Optional[dict] = None,
+    heat_kws: Optional[dict] = None,
+) -> Axes:
     """Plot a correlation heatmap.
 
     Parameters
@@ -38,10 +39,14 @@ def plot_corr(
     """
     if not heat_kws:
         heat_kws = {
-            'vmin': -1, 'vmax': 1, 'annot': True, 'square': True,
-            'cmap': diverging_palette(240, 10, as_cmap=True)}
+            "vmin": -1,
+            "vmax": 1,
+            "annot": True,
+            "square": True,
+            "cmap": diverging_palette(240, 10, as_cmap=True),
+        }
     if not corr_kws:
-        corr_kws = {'method': 'spearman'}
+        corr_kws = {"method": "spearman"}
 
     cols = _select_cols(data, columns)
 
@@ -53,10 +58,11 @@ def plot_corr(
 
 
 def plot_stats(
-        na_info: DataFrame,
-        idxstr: str = None,
-        idxint: int = None,
-        **kwargs) -> SubplotBase:
+    na_info: DataFrame,
+    idxstr: Optional[str] = None,
+    idxint: Optional[int] = None,
+    **kwargs,
+) -> Axes:
     """Plot barplot with NA descriptive statistics.
 
     Parameters
@@ -147,16 +153,17 @@ def plot_stats(
 
 
 def plot_heatmap(
-        data: DataFrame,
-        columns: Optional[Sequence[str]] = None,
-        droppable: bool = True,
-        sort: bool = True,
-        cmap: Optional[Sequence[str]] = None,
-        names: Optional[Sequence[str]] = None,
-        yaxis: bool = False,
-        xaxis: bool = True,
-        legend_kws: dict = None,
-        sb_kws: dict = None) -> SubplotBase:
+    data: DataFrame,
+    columns: Optional[Sequence[str]] = None,
+    droppable: bool = True,
+    sort: bool = True,
+    cmap: Optional[Sequence[str]] = None,
+    names: Optional[Sequence[str]] = None,
+    yaxis: bool = False,
+    xaxis: bool = True,
+    legend_kws: Optional[dict] = None,
+    sb_kws: Optional[dict] = None,
+) -> Axes:
     """NA heatmap. Plots NA values as red lines and normal values
     as black lines.
 
@@ -195,11 +202,11 @@ def plot_heatmap(
         AxesSubplot object.
     """
     if not cmap:
-        cmap = ['green', 'orange', 'red']
+        cmap = ["green", "orange", "red"]
     if not names:
-        names = ['Filled', 'Droppable', 'NA']
+        names = ["Filled", "Droppable", "NA"]
     if not sb_kws:
-        sb_kws = {'cbar': False}
+        sb_kws = {"cbar": False}
 
     cols = _select_cols(data, columns).tolist()
     data_na = data.loc[:, cols].isna().copy()
@@ -217,7 +224,11 @@ def plot_heatmap(
         labels = [names[0], names[-1]]
 
     if not legend_kws:
-        legend_kws = {'bbox_to_anchor': (0.5, 1.15), 'loc': 'upper center', 'ncol': len(labels)}
+        legend_kws = {
+            "bbox_to_anchor": (0.5, 1.15),
+            "loc": "upper center",
+            "ncol": len(labels),
+        }
 
     ax_heatmap = heatmap(data_na, cmap=cmap, **sb_kws)
     ax_heatmap.yaxis.set_visible(yaxis)
@@ -329,13 +340,14 @@ def plot_heatmap(
 
 
 def plot_hist(
-        data: DataFrame,
-        col: str,
-        col_na: str,
-        col_na_fmt: str = '"{}" is NA',
-        stat: str = "density",
-        common_norm: bool = False,
-        hist_kws: dict = None) -> SubplotBase:
+    data: DataFrame,
+    col: str,
+    col_na: str,
+    col_na_fmt: str = '"{}" is NA',
+    stat: str = "density",
+    common_norm: bool = False,
+    hist_kws: Optional[dict] = None,
+) -> Axes:
     """Histogram plot to compare distributions of values in column `col`
     split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
 
@@ -360,7 +372,7 @@ def plot_hist(
         AxesSubplot returned by :py:meth:`seaborn.histplot`.
     """
     if not hist_kws:
-        hist_kws = {'stat': stat, 'common_norm': common_norm}
+        hist_kws = {"stat": stat, "common_norm": common_norm}
 
     data_copy = data.copy()
     col_na_name = col_na_fmt.format(col_na)
@@ -370,12 +382,13 @@ def plot_hist(
 
 
 def plot_kde(
-        data: DataFrame,
-        col: str,
-        col_na: str,
-        col_na_fmt: str = '"{}" is NA',
-        common_norm: bool = False,
-        kde_kws: dict = None) -> SubplotBase:
+    data: DataFrame,
+    col: str,
+    col_na: str,
+    col_na_fmt: str = '"{}" is NA',
+    common_norm: bool = False,
+    kde_kws: Optional[dict] = None,
+) -> Axes:
     """KDE plot to compare distributions of values in column `col`
     split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
 
@@ -400,7 +413,7 @@ def plot_kde(
         AxesSubplot returned by :py:meth:`seaborn.kdeplot()`.
     """
     if not kde_kws:
-        kde_kws = {'common_norm': common_norm}
+        kde_kws = {"common_norm": common_norm}
 
     data_copy = data.copy()
     col_na_name = col_na_fmt.format(col_na)

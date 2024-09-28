@@ -1,42 +1,61 @@
 """Altair-backed plotting functions."""
+
 __all__ = [
-    'plot_hist', 'plot_kde', 'plot_corr',
-    'plot_scatter', 'plot_stairs', 'plot_stairbars', 'plot_heatmap']
+    "plot_hist",
+    "plot_kde",
+    "plot_corr",
+    "plot_scatter",
+    "plot_stairs",
+    "plot_stairbars",
+    "plot_heatmap",
+]
 from typing import Optional, Sequence
 from numbers import Integral
 from ipywidgets import widgets, interact
 from numpy import arange, nan, fill_diagonal
 from pandas import DataFrame
 from altair import (
-    Axis, Chart, Color, condition, data_transformers, selection_multi,
-    Scale, Text, value, X, Y)
-from .._stats import (
-    _select_cols, correlate, stairs)
+    Axis,
+    Chart,
+    Color,
+    LayerChart,
+    condition,
+    data_transformers,
+    selection_multi,
+    Scale,
+    Text,
+    value,
+    X,
+    Y,
+)
+from .._stats import _select_cols, correlate, stairs
+
 # Allow plotting mote than 5000 rows
 data_transformers.disable_max_rows()
 
 
 def plot_hist(
-        data: DataFrame,
-        col: str,
-        col_na: str,
-        na_label: str = None,
-        na_replace: dict = None,
-        heuristic: bool = True,
-        thres_uniq: int = 20,
-        step: bool = False,
-        norm: bool = True,
-        font_size: int = 14,
-        xlabel: str = None,
-        ylabel: str = "Frequency",
-        chart_kws: dict = None,
-        markarea_kws: dict = None,
-        markbar_kws: dict = None,
-        joinagg_kws: dict = None,
-        calc_kws: dict = None,
-        x_kws: dict = None,
-        y_kws: dict = None,
-        color_kws: dict = None) -> Chart:
+    data: DataFrame,
+    col: str,
+    col_na: str,
+    na_label: Optional[str] = None,
+    na_replace: Optional[dict] = None,
+    heuristic: bool = True,
+    thres_uniq: int = 20,
+    step: bool = False,
+    norm: bool = True,
+    font_size: int = 14,
+    xlabel: Optional[str] = None,
+    ylabel: str = "Frequency",
+    chart_kws: Optional[dict] = None,
+    markarea_kws: Optional[dict] = None,
+    markbar_kws: Optional[dict] = None,
+    joinagg_kws: Optional[dict] = None,
+    calc_kws: Optional[dict] = None,
+    x_kws: Optional[dict] = None,
+    y_kws: Optional[dict] = None,
+    color_kws: Optional[dict] = None,
+) -> Chart:
     """Histogram plot.
 
     Plots a histogram of values in a column `col` grouped by NA/non-NA values
@@ -90,41 +109,42 @@ def plot_hist(
     if not chart_kws:
         chart_kws = {}
     if not markarea_kws:
-        markarea_kws = {'opacity': 0.5, 'interpolate': 'step'}
+        markarea_kws = {"opacity": 0.5, "interpolate": "step"}
     if not markbar_kws:
-        markbar_kws = {'opacity': 0.5}
+        markbar_kws = {"opacity": 0.5}
     if not joinagg_kws:
-        joinagg_kws = {'total': 'count()', 'groupby': [col_na]}
+        joinagg_kws = {"total": "count()", "groupby": [col_na]}
     if not calc_kws:
-        calc_kws = {'y': '1 / datum.total'}
+        calc_kws = {"y": "1 / datum.total"}
     if not x_kws:
-        x_kws = {'title': xlabel or col}
+        x_kws = {"title": xlabel or col}
     if not y_kws:
-        y_kws = {'type': 'quantitative', 'stack': None, 'title': ylabel}
+        y_kws = {"type": "quantitative", "stack": None, "title": ylabel}
     if not color_kws:
-        color_kws = {'title': na_label or col_na}
+        color_kws = {"title": na_label or col_na}
     if not na_replace:
-        na_replace = {True: 'NA', False: 'Filled'}
+        na_replace = {True: "NA", False: "Filled"}
 
     # Simple heuristic for choosing histplot parameters
     if heuristic:
         # 1) If dtype is object, do not bin anything and treat as nominal
         if data[col].dtype == object:
-            x_kws.update({'bin': False})
-            x_kws.update({'type': 'nominal'})
+            x_kws.update({"bin": False})
+            x_kws.update({"type": "nominal"})
 
         # 2) Check the number of unique values
         else:
             few_uniques = data[col].dropna().unique().size < thres_uniq
-            integers = data[col].dropna()\
-                .apply(lambda x: not isinstance(x, Integral)).sum()
+            integers = (
+                data[col].dropna().apply(lambda x: not isinstance(x, Integral)).sum()
+            )
 
             if not integers and few_uniques:
-                x_kws.update({'bin': False})
-                x_kws.update({'type': 'ordinal'})
+                x_kws.update({"bin": False})
+                x_kws.update({"type": "ordinal"})
             else:
-                x_kws.update({'bin': True})
-                x_kws.update({'type': 'quantitative'})
+                x_kws.update({"bin": True})
+                x_kws.update({"type": "quantitative"})
 
     data_copy = data.loc[:, [col, col_na]].copy()
     data_copy[col_na] = data_copy.loc[:, col_na].isna().replace(na_replace)
@@ -132,50 +152,50 @@ def plot_hist(
     # Chart creation
     chart = Chart(data_copy)
 
-    chart = chart.mark_area(**markarea_kws)\
-        if step\
-        else chart.mark_bar(**markbar_kws)
+    chart = chart.mark_area(**markarea_kws) if step else chart.mark_bar(**markbar_kws)
 
     # Normed vs non-normed histogram
     if norm:
-        y_shorthand = 'sum(y)'
+        y_shorthand = "sum(y)"
         chart = chart.transform_joinaggregate(**joinagg_kws)
         chart = chart.transform_calculate(**calc_kws)
     else:
-        y_shorthand = 'count()'
+        y_shorthand = "count()"
 
-    selection = selection_multi(fields=[col_na], bind='legend')
+    selection = selection_multi(fields=[col_na], bind="legend")
     chart = chart.encode(
         x=X(col, **x_kws),
         y=Y(y_shorthand, **y_kws),
         color=Color(col_na, **color_kws),
-        tooltip=['count()'],
+        tooltip=["count()"],
         opacity=condition(
             selection,
-            value(markarea_kws['opacity'] if step else markbar_kws['opacity']),
-            value(0))
+            value(markarea_kws["opacity"] if step else markbar_kws["opacity"]),
+            value(0),
+        ),
     ).add_selection(selection)
 
-    return chart\
-        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
-        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+    return chart.configure_axis(
+        labelFontSize=font_size, titleFontSize=font_size
+    ).configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_kde(
-        data: DataFrame,
-        col: str,
-        col_na: str,
-        na_label: str = None,
-        na_replace: dict = None,
-        font_size: int = 14,
-        xlabel: str = None,
-        ylabel: str = "Density",
-        chart_kws: dict = None,
-        markarea_kws: dict = None,
-        density_kws: dict = None,
-        x_kws: dict = None,
-        y_kws: dict = None,
-        color_kws: dict = None) -> Chart:
+    data: DataFrame,
+    col: str,
+    col_na: str,
+    na_label: Optional[str] = None,
+    na_replace: Optional[dict] = None,
+    font_size: int = 14,
+    xlabel: Optional[str] = None,
+    ylabel: str = "Density",
+    chart_kws: Optional[dict] = None,
+    markarea_kws: Optional[dict] = None,
+    density_kws: Optional[dict] = None,
+    x_kws: Optional[dict] = None,
+    y_kws: Optional[dict] = None,
+    color_kws: Optional[dict] = None,
+) -> Chart:
     """Density plot.
 
     Plots distribution of values in a column `col` grouped by
@@ -220,18 +240,17 @@ def plot_kde(
     if not chart_kws:
         chart_kws = {}
     if not markarea_kws:
-        markarea_kws = {'opacity': 0.5}
+        markarea_kws = {"opacity": 0.5}
     if not density_kws:
-        density_kws = {
-            'density': col, 'groupby': [col_na], 'as_': [col, ylabel]}
+        density_kws = {"density": col, "groupby": [col_na], "as_": [col, ylabel]}
     if not x_kws:
-        x_kws = {'title': xlabel or col}
+        x_kws = {"title": xlabel or col}
     if not y_kws:
-        y_kws = {'type': 'quantitative', 'stack': None, 'title': ylabel}
+        y_kws = {"type": "quantitative", "stack": None, "title": ylabel}
     if not color_kws:
-        color_kws = {'title': na_label or col_na}
+        color_kws = {"title": na_label or col_na}
     if not na_replace:
-        na_replace = {True: 'NA', False: 'Filled'}
+        na_replace = {True: "NA", False: "Filled"}
 
     y_shorthand = ylabel
 
@@ -242,36 +261,34 @@ def plot_kde(
     chart = Chart(data_copy, **chart_kws).mark_area(**markarea_kws)
     chart = chart.transform_density(**density_kws)
 
-    selection = selection_multi(fields=[col_na], bind='legend')
+    selection = selection_multi(fields=[col_na], bind="legend")
     chart = chart.encode(
         x=X(col, **x_kws),
         y=Y(y_shorthand, **y_kws),
         color=Color(col_na, **color_kws),
-        opacity=condition(
-            selection,
-            value(markarea_kws['opacity']),
-            value(0))
+        opacity=condition(selection, value(markarea_kws["opacity"]), value(0)),
     ).add_selection(selection)
 
-    return chart\
-        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
-        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+    return chart.configure_axis(
+        labelFontSize=font_size, titleFontSize=font_size
+    ).configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_scatter(
-        data: DataFrame,
-        x_col: str,
-        y_col: str,
-        col_na: str,
-        na_label: str = None,
-        na_replace: dict = None,
-        font_size: int = 14,
-        xlabel: str = None,
-        ylabel: str = None,
-        circle_kws: dict = None,
-        color_kws: dict = None,
-        x_kws: dict = None,
-        y_kws: dict = None):
+    data: DataFrame,
+    x_col: str,
+    y_col: str,
+    col_na: str,
+    na_label: Optional[str] = None,
+    na_replace: Optional[dict] = None,
+    font_size: int = 14,
+    xlabel: Optional[str] = None,
+    ylabel: Optional[str] = None,
+    circle_kws: Optional[dict] = None,
+    color_kws: Optional[dict] = None,
+    x_kws: Optional[dict] = None,
+    y_kws: Optional[dict] = None,
+):
     """Scatter plot.
 
     Parameters
@@ -309,45 +326,50 @@ def plot_scatter(
         Scatter plot.
     """
     if not circle_kws:
-        circle_kws = {'opacity': 0.5}
+        circle_kws = {"opacity": 0.5}
     if not color_kws:
-        color_kws = {'title': col_na or na_label}
+        color_kws = {"title": col_na or na_label}
     if not x_kws:
-        x_kws = {'title': xlabel or x_col}
+        x_kws = {"title": xlabel or x_col}
     if not y_kws:
-        y_kws = {'title': ylabel or y_col}
+        y_kws = {"title": ylabel or y_col}
     if not na_replace:
-        na_replace = {True: 'NA', False: 'Filled'}
+        na_replace = {True: "NA", False: "Filled"}
 
     data_copy = data.loc[:, [x_col, y_col, col_na]].copy()
     data_copy[col_na] = data_copy[col_na].isna().replace(na_replace)
     base = Chart(data_copy)
 
-    selection = selection_multi(fields=[col_na], bind='legend')
-    points = base.mark_circle(**circle_kws).encode(
-        x=X(x_col, **x_kws),
-        y=Y(y_col, **y_kws),
-        color=Color(col_na, **color_kws),
-        opacity=condition(selection, value(circle_kws['opacity']), value(0))
-    ).add_selection(selection)
+    selection = selection_multi(fields=[col_na], bind="legend")
+    points = (
+        base.mark_circle(**circle_kws)
+        .encode(
+            x=X(x_col, **x_kws),
+            y=Y(y_col, **y_kws),
+            color=Color(col_na, **color_kws),
+            opacity=condition(selection, value(circle_kws["opacity"]), value(0)),
+        )
+        .add_selection(selection)
+    )
 
-    return points\
-        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
-        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+    return points.configure_axis(
+        labelFontSize=font_size, titleFontSize=font_size
+    ).configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_stairs(
-        data: DataFrame,
-        columns: Optional[Sequence[str]] = None,
-        xlabel: str = 'Columns',
-        ylabel: str = 'Instances',
-        tooltip_label: str = 'Size difference',
-        dataset_label: str = '(Whole dataset)',
-        font_size: int = 14,
-        area_kws: dict = None,
-        chart_kws: dict = None,
-        x_kws: dict = None,
-        y_kws: dict = None):
+    data: DataFrame,
+    columns: Optional[Sequence[str]] = None,
+    xlabel: str = "Columns",
+    ylabel: str = "Instances",
+    tooltip_label: str = "Size difference",
+    dataset_label: str = "(Whole dataset)",
+    font_size: int = 14,
+    area_kws: Optional[dict] = None,
+    chart_kws: Optional[dict] = None,
+    x_kws: Optional[dict] = None,
+    y_kws: Optional[dict] = None,
+):
     """Stairs plot.
 
     Plots changes in dataset size (rows/instances number) after applying
@@ -384,41 +406,39 @@ def plot_stairs(
         Chart object.
     """
     if not area_kws:
-        area_kws = {'interpolate': 'step-after', 'line': True}
+        area_kws = {"interpolate": "step-after", "line": True}
     if not chart_kws:
         chart_kws = {}
     if not x_kws:
-        x_kws = {'sort': '-y', 'shorthand': xlabel}
+        x_kws = {"sort": "-y", "shorthand": xlabel}
     if not y_kws:
-        y_kws = {'shorthand': ylabel}
+        y_kws = {"shorthand": ylabel}
 
-    data_sizes = stairs(
-        data, columns, xlabel, ylabel, tooltip_label, dataset_label)
+    data_sizes = stairs(data, columns, xlabel, ylabel, tooltip_label, dataset_label)
 
-    chart = Chart(data_sizes, **chart_kws)\
-        .mark_area(**area_kws)\
-        .encode(
-            x=X(**x_kws),
-            y=Y(**y_kws),
-            tooltip=[xlabel, ylabel, tooltip_label]
+    chart = (
+        Chart(data_sizes, **chart_kws)
+        .mark_area(**area_kws)
+        .encode(x=X(**x_kws), y=Y(**y_kws), tooltip=[xlabel, ylabel, tooltip_label])
     )
-    return chart\
-        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
-        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+    return chart.configure_axis(
+        labelFontSize=font_size, titleFontSize=font_size
+    ).configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_stairbars(
-        data: DataFrame,
-        columns: Optional[Sequence[str]] = None,
-        xlabel: str = 'Columns',
-        ylabel: str = 'Instances',
-        tooltip_label: str = 'Size difference',
-        dataset_label: str = '(Whole dataset)',
-        font_size: int = 14,
-        area_kws: dict = None,
-        chart_kws: dict = None,
-        x_kws: dict = None,
-        y_kws: dict = None):
+    data: DataFrame,
+    columns: Optional[Sequence[str]] = None,
+    xlabel: str = "Columns",
+    ylabel: str = "Instances",
+    tooltip_label: str = "Size difference",
+    dataset_label: str = "(Whole dataset)",
+    font_size: int = 14,
+    area_kws: Optional[dict] = None,
+    chart_kws: Optional[dict] = None,
+    x_kws: Optional[dict] = None,
+    y_kws: Optional[dict] = None,
+):
     """Stairbars.
 
     Plots the changes in dataset size (rows/instances number) after applying
@@ -455,44 +475,42 @@ def plot_stairbars(
         Chart object.
     """
     if not area_kws:
-        area_kws = {'interpolate': 'step-after', 'line': True}
+        area_kws = {"interpolate": "step-after", "line": True}
     if not chart_kws:
         chart_kws = {}
     if not x_kws:
-        x_kws = {'sort': '-y', 'shorthand': xlabel}
+        x_kws = {"sort": "-y", "shorthand": xlabel}
     if not y_kws:
-        y_kws = {'shorthand': ylabel}
+        y_kws = {"shorthand": ylabel}
 
-    data_sizes = stairs(
-        data, columns, xlabel, ylabel, tooltip_label, dataset_label)
+    data_sizes = stairs(data, columns, xlabel, ylabel, tooltip_label, dataset_label)
 
-    chart = Chart(data_sizes, **chart_kws)\
-        .mark_bar(**area_kws)\
-        .encode(
-            x=X(**x_kws),
-            y=Y(**y_kws),
-            tooltip=[xlabel, ylabel, tooltip_label]
+    chart = (
+        Chart(data_sizes, **chart_kws)
+        .mark_bar(**area_kws)
+        .encode(x=X(**x_kws), y=Y(**y_kws), tooltip=[xlabel, ylabel, tooltip_label])
     )
-    return chart\
-        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
-        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+    return chart.configure_axis(
+        labelFontSize=font_size, titleFontSize=font_size
+    ).configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_heatmap(
-        data: DataFrame,
-        columns: Optional[Sequence[str]] = None,
-        names: list = None,
-        sort: bool = True,
-        droppable: bool = True,
-        font_size: int = 14,
-        xlabel: str = 'Columns',
-        ylabel: str = 'Rows',
-        zlabel: str = 'Values',
-        chart_kws: dict = None,
-        rect_kws: dict = None,
-        x_kws: dict = None,
-        y_kws: dict = None,
-        color_kws: dict = None) -> Chart:
+    data: DataFrame,
+    columns: Optional[Sequence[str]] = None,
+    names: Optional[list] = None,
+    sort: bool = True,
+    droppable: bool = True,
+    font_size: int = 14,
+    xlabel: str = "Columns",
+    ylabel: str = "Rows",
+    zlabel: str = "Values",
+    chart_kws: Optional[dict] = None,
+    rect_kws: Optional[dict] = None,
+    x_kws: Optional[dict] = None,
+    y_kws: Optional[dict] = None,
+    color_kws: Optional[dict] = None,
+) -> Chart:
     """Heatmap plot for NA/non-NA values.
 
     By default, it also indicates values that are to be dropped by
@@ -537,21 +555,26 @@ def plot_heatmap(
         Altair Chart object.
     """
     if not chart_kws:
-        chart_kws = {'height': 300}
+        chart_kws = {"height": 300}
     if not x_kws:
-        x_kws = {'sort': None, 'shorthand': xlabel, 'type': 'nominal'}
+        x_kws = {"sort": None, "shorthand": xlabel, "type": "nominal"}
     if not y_kws:
-        y_kws = {'sort': None, 'shorthand': ylabel,
-                 'type': 'ordinal', 'axis': Axis(labelOverlap='greedy')}
+        y_kws = {
+            "sort": None,
+            "shorthand": ylabel,
+            "type": "ordinal",
+            "axis": Axis(labelOverlap="greedy"),
+        }
     if not names:
-        names = ['Filled', 'NA', 'Droppable']
+        names = ["Filled", "NA", "Droppable"]
     if not color_kws:
         color_kws = {
-            'shorthand': zlabel,
-            'type': 'nominal',
-            'scale': Scale(
+            "shorthand": zlabel,
+            "type": "nominal",
+            "scale": Scale(
                 domain=names[0:2] if not droppable else names,
-                range=["green", "red", "orange"])
+                range=["green", "red", "orange"],
+            ),
         }
     if not rect_kws:
         rect_kws = {"clip": True}
@@ -560,60 +583,55 @@ def plot_heatmap(
 
     data_copy = data.loc[:, cols].copy().isna()
     if sort:
-        cols_sorted = data_copy\
-            .sum()\
-            .sort_values(ascending=False)\
-            .index.tolist()
+        cols_sorted = data_copy.sum().sort_values(ascending=False).index.tolist()
         data_copy.sort_values(by=cols_sorted, inplace=True)
-        x_kws.update({'sort': cols_sorted})
+        x_kws.update({"sort": cols_sorted})
 
     if droppable:
         non_na_mask = ~data_copy.values
-        na_rows_mask = data_copy.any(
-            axis=1).values[:, None]
+        na_rows_mask = data_copy.any(axis=1).values[:, None]
         droppable_mask = non_na_mask & na_rows_mask
-        data_copy = data_copy.astype(int)\
-            .mask(droppable_mask, other=2)
+        data_copy = data_copy.astype(int).mask(droppable_mask, other=2)
     else:
         data_copy = data_copy.astype(int)
 
-    data_copy = data_copy.replace(
-        dict(zip([0, 1, 2], names)))
+    data_copy = data_copy.replace(dict(zip([0, 1, 2], names)))
 
     data_copy[ylabel] = arange(data.shape[0])
     data_copy = data_copy.melt(
-        id_vars=[ylabel],
-        value_vars=cols,
-        var_name=xlabel,
-        value_name=zlabel)
+        id_vars=[ylabel], value_vars=cols, var_name=xlabel, value_name=zlabel
+    )
 
-    chart = Chart(data_copy, **chart_kws)\
-        .mark_rect(**rect_kws)\
+    chart = (
+        Chart(data_copy, **chart_kws)
+        .mark_rect(**rect_kws)
         .encode(
             x=X(**x_kws),
             y=Y(**y_kws),
             color=Color(**color_kws),
+        )
     )
 
-    return chart\
-        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
-        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+    return chart.configure_axis(
+        labelFontSize=font_size, titleFontSize=font_size
+    ).configure_legend(labelFontSize=font_size, titleFontSize=font_size)
 
 
 def plot_corr(
-        data: DataFrame,
-        columns: Optional[Sequence[str]] = None,
-        mask_diag: bool = True,
-        annot_color: str = "black",
-        round_sgn: int = 2,
-        font_size: int = 14,
-        opacity: float = 0.5,
-        corr_kws: dict = None,
-        chart_kws: dict = None,
-        x_kws: dict = None,
-        y_kws: dict = None,
-        color_kws: dict = None,
-        text_kws: dict = None) -> Chart:
+    data: DataFrame,
+    columns: Optional[Sequence[str]] = None,
+    mask_diag: bool = True,
+    annot_color: str = "black",
+    round_sgn: int = 2,
+    font_size: int = 14,
+    opacity: float = 0.5,
+    corr_kws: Optional[dict] = None,
+    chart_kws: Optional[dict] = None,
+    x_kws: Optional[dict] = None,
+    y_kws: Optional[dict] = None,
+    color_kws: Optional[dict] = None,
+    text_kws: Optional[dict] = None,
+) -> LayerChart:
     """Correlation heatmap.
 
     Parameters
@@ -635,20 +653,21 @@ def plot_corr(
         Altair Chart object.
     """
     if not corr_kws:
-        corr_kws = {'method': 'spearman'}
+        corr_kws = {"method": "spearman"}
     if not chart_kws:
         chart_kws = {}
     if not x_kws:
-        x_kws = {'shorthand': 'variable', 'title': ''}
+        x_kws = {"shorthand": "variable", "title": ""}
     if not y_kws:
-        y_kws = {'shorthand': 'index', 'title': ''}
+        y_kws = {"shorthand": "index", "title": ""}
     if not color_kws:
         color_kws = {
-            'shorthand': 'value:Q',
-            'title': 'Correlation',
-            'scale': Scale(scheme="redblue", domain=[-1, 1], reverse=True)}
+            "shorthand": "value:Q",
+            "title": "Correlation",
+            "scale": Scale(scheme="redblue", domain=[-1, 1], reverse=True),
+        }
     if not text_kws:
-        text_kws = {'shorthand': 'value:Q', 'format': f'.{round_sgn}f'}
+        text_kws = {"shorthand": "value:Q", "format": f".{round_sgn}f"}
 
     cols = _select_cols(data, columns)
 
@@ -656,26 +675,24 @@ def plot_corr(
 
     if mask_diag:
         fill_diagonal(data_corr.values, nan)
-    data_corr_melt = data_corr.reset_index(drop=False).melt(id_vars=['index'])
+    data_corr_melt = data_corr.reset_index(drop=False).melt(id_vars=["index"])
 
-    base = Chart(data_corr_melt, **chart_kws)\
-        .encode(x=X(**x_kws), y=Y(**y_kws))
+    base = Chart(data_corr_melt, **chart_kws).encode(x=X(**x_kws), y=Y(**y_kws))
 
     heatmap = base.mark_rect().encode(color=Color(**color_kws))
-    text = base.mark_text(baseline='middle').encode(text=Text(**text_kws))
+    text = base.mark_text(baseline="middle").encode(text=Text(**text_kws))
 
     # Draw the chart
-    return (heatmap + text)\
-        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)\
-        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)\
-        .configure_text(fontSize=font_size, color=annot_color)\
+    return (
+        (heatmap + text)
+        .configure_axis(labelFontSize=font_size, titleFontSize=font_size)
+        .configure_legend(labelFontSize=font_size, titleFontSize=font_size)
+        .configure_text(fontSize=font_size, color=annot_color)
         .configure_rect(opacity=opacity)
+    )
 
 
-def view_dist(
-        data: DataFrame,
-        columns: Optional[Sequence[str]] = None,
-        **kwargs):
+def view_dist(data: DataFrame, columns: Optional[Sequence[str]] = None, **kwargs):
     """Interactive distribution widget.
 
     Interactively observe distribution of values in a selected column
@@ -694,16 +711,19 @@ def view_dist(
         Interactive widget.
     """
     cols = _select_cols(data, columns)
-    na_cols = data.isna().sum(axis=0)\
-        .rename('na_num')\
-        .to_frame()\
-        .query('na_num > 0')\
+    na_cols = (
+        data.isna()
+        .sum(axis=0)
+        .rename("na_num")
+        .to_frame()
+        .query("na_num > 0")
         .index.values
+    )
 
     return interact(
-        lambda Column, NA:
-            plot_hist(data, col=Column, col_na=NA, **kwargs)
-            if Column != NA
-            else widgets.HTML(
-                '<em style="color: red">Note: select different columns</em>'),
-        Column=cols, NA=na_cols)
+        lambda Column, NA: plot_hist(data, col=Column, col_na=NA, **kwargs)
+        if Column != NA
+        else widgets.HTML('<em style="color: red">Note: select different columns</em>'),
+        Column=cols,
+        NA=na_cols,
+    )
