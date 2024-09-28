@@ -9,22 +9,16 @@ description = "Missing Values Analysis for Data Science"
 readme = "README.md"
 requires-python = ">=3.8"
 license.file = "LICENSE"
-authors = [
-  { name = "Maksim Terpilovskii", email = "maximtrp@gmail.com" },
-]
-keywords = [
-    "data science",
-    "data analytics"
-]
+authors = [{ name = "Maksim Terpilovskii", email = "maximtrp@gmail.com" }]
+keywords = ["data science", "data analytics", "statistics"]
 classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Text Processing :: General",
 ]
@@ -45,7 +39,7 @@ dependencies = [
 test = ["pytest", "codecov", "coverage"]
 
 [tool.setuptools.dynamic]
-version = {attr = "scikit_na.__version__"}
+version = { attr = "scikit_na.__version__" }
 
 [tool.pytest.ini_options]
 log_cli = true
