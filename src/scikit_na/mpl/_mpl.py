@@ -1,7 +1,8 @@
 """Matplotlib-backed visualization"""
 
 __all__ = ["plot_corr", "plot_stats", "plot_heatmap", "plot_hist", "plot_kde"]
-from typing import Optional, Sequence
+from typing import List, Optional, Sequence
+from matplotlib.typing import ColorType
 from pandas import DataFrame
 from numpy import fill_diagonal, nan
 from seaborn import heatmap, histplot, kdeplot, barplot, diverging_palette
@@ -157,7 +158,7 @@ def plot_heatmap(
     columns: Optional[Sequence[str]] = None,
     droppable: bool = True,
     sort: bool = True,
-    cmap: Optional[Sequence[str]] = None,
+    cmap: Optional[List[ColorType]] = None,
     names: Optional[Sequence[str]] = None,
     yaxis: bool = False,
     xaxis: bool = True,

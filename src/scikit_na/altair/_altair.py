@@ -9,7 +9,7 @@ __all__ = [
     "plot_stairbars",
     "plot_heatmap",
 ]
-from typing import Optional, Sequence
+from typing import Iterable, Optional, Sequence
 from numbers import Integral
 from ipywidgets import widgets, interact
 from numpy import arange, nan, fill_diagonal
@@ -619,7 +619,7 @@ def plot_heatmap(
 
 def plot_corr(
     data: DataFrame,
-    columns: Optional[Sequence[str]] = None,
+    columns: Optional[Iterable[str]] = None,
     mask_diag: bool = True,
     annot_color: str = "black",
     round_sgn: int = 2,

@@ -2,15 +2,15 @@
 
 __all__ = ["describe", "summary", "correlate", "model", "stairs", "test_hypothesis"]
 from functools import partial
-from typing import Union, Optional, Dict, Sequence
-from pandas import concat, DataFrame, Series, NA
+from typing import Iterable, Union, Optional, Dict, Sequence
+from pandas import Index, concat, DataFrame, Series, NA
 from numpy import array, ndarray, nan, r_, setdiff1d
 from statsmodels.discrete.discrete_model import Logit
 
 
 def _select_cols(
     data: DataFrame,
-    columns: Optional[Sequence] = None,
+    columns: Optional[Iterable] = None,
     second_var: Optional[list] = None,
 ) -> ndarray:
     return array(
@@ -24,13 +24,15 @@ def _select_cols(
 
 def _get_nominal_cols(data: DataFrame, columns: Optional[Sequence] = None):
     cols = _select_cols(data, columns)
-    return (data[cols].dtypes == object).replace({False: NA}).dropna().index.values
+    return (
+        Series(data[cols].dtypes == object).replace({False: NA}).dropna().index.values
+    )
 
 
 def _get_numeric_cols(data: DataFrame, columns: Optional[Sequence] = None):
     cols = _select_cols(data, columns)
     return (
-        ((data[cols].dtypes == float) | (data[cols].dtypes == int))
+        Series((data[cols].dtypes == float) | (data[cols].dtypes == int))
         .replace({False: NA})
         .dropna()
         .index.values
@@ -57,21 +59,21 @@ def _get_rows_after_cum_dropna(
     return data.dropna(subset=(cols + [col] if col else cols)).shape[0]
 
 
-def _get_abs_na_count(data: DataFrame, cols: list) -> Series:
+def _get_abs_na_count(data: DataFrame, cols: Iterable) -> Series:
     return data.loc[:, cols].isna().sum(axis=0)
 
 
-def _get_na_perc(data: DataFrame, na_abs: Union[Series, int]) -> Series:
+def _get_na_perc(data: DataFrame, na_abs: Series) -> Series:
     return na_abs / data.shape[0] * 100
 
 
-def _get_total_na_count(data: DataFrame, cols: list) -> int:
+def _get_total_na_count(data: DataFrame, cols: Iterable) -> int:
     return data.loc[:, cols].isna().sum().sum()
 
 
 def summary(
     data: DataFrame,
-    columns: Optional[Sequence] = None,
+    columns: Optional[Iterable] = None,
     per_column: bool = True,
     round_dec: int = 2,
 ) -> DataFrame:
@@ -162,7 +164,7 @@ def summary(
                 / total_cells
                 * 100,
             },
-            index=["dataset"],
+            index=Index(["dataset"]),
         ).T
 
     if round_dec:
@@ -227,7 +229,7 @@ def stairs(
 
 
 def correlate(
-    data: DataFrame, columns: Optional[Sequence] = None, drop: bool = True, **kwargs
+    data: DataFrame, columns: Optional[Iterable] = None, drop: bool = True, **kwargs
 ) -> DataFrame:
     """
     Calculate correlations between columns in terms of NA values.
@@ -369,7 +371,7 @@ def test_hypothesis(
     col_na: str,
     test_fn: callable,
     test_kws: Optional[dict] = None,
-    columns: Optional[Union[Sequence[str], Dict[str, callable]]] = None,
+    columns: Optional[Union[Iterable[str], Dict[str, callable]]] = None,
     dropna: bool = True,
 ) -> Dict[str, object]:
     """Test a statistical hypothesis.
