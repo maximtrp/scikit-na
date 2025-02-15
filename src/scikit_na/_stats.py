@@ -105,28 +105,24 @@ def summary(
         get_unique_na = partial(_get_unique_na, na_by_inst, data_copy)
         get_rows_after_dropna = partial(_get_rows_after_dropna, data_copy)
 
-        na_abs_count = _get_abs_na_count(data_copy, cols).rename("NA count")
-        na_percentage = _get_na_perc(data_copy, na_abs_count).rename(
-            "NA, % (per column)"
-        )
+        na_abs_count = _get_abs_na_count(data_copy, cols).rename("na_count")
+        na_percentage = _get_na_perc(data_copy, na_abs_count).rename("na_pct_per_col")
         na_percentage_total = (
-            (na_abs_count / na_total * 100).rename("NA, % (of all NAs)").fillna(0)
+            (na_abs_count / na_total * 100).rename("na_pct_total").fillna(0)
         )
         na_unique = Series(
-            list(map(get_unique_na, cols)), index=cols, name="NA unique (per column)"
+            list(map(get_unique_na, cols)), index=cols, name="na_unique_per_col"
         )
         na_unique_percentage = (
-            (na_unique / na_abs_count * 100)
-            .rename("NA unique, % (per column)")
-            .fillna(0)
+            (na_unique / na_abs_count * 100).rename("na_unique_pct_per_col").fillna(0)
         )
         rows_after_dropna = Series(
             list(map(get_rows_after_dropna, cols)),
             index=cols,
-            name="Rows left after dropna()",
+            name="rows_after_dropna",
         )
         rows_perc_after_dropna = (rows_after_dropna / data_copy.shape[0] * 100).rename(
-            "Rows left after dropna(), %"
+            "rows_after_dropna_pct"
         )
         na_df = concat(
             (
@@ -150,19 +146,17 @@ def summary(
         na_col_only = (na_col_raw == data_copy.shape[0]).sum()
         na_df = DataFrame(
             {
-                "Total columns": data_copy.shape[1],
-                "Columns with NA": na_col_num,
-                "Columns with NA only (all missing)": na_col_only,
-                "Total rows": data_copy.shape[0],
-                "Rows with NA": data_copy.shape[0] - rows_after_dropna,
-                "Rows without NA": rows_after_dropna,
-                "Total cells": total_cells,
-                "Cells with NA": na_total,
-                "Cells with NA, %": na_percentage_total,
-                "Cells with non-missing data": total_cells - na_total,
-                "Cells with non-missing data, %": (total_cells - na_total)
-                / total_cells
-                * 100,
+                "total_cols": data_copy.shape[1],
+                "na_cols": na_col_num,
+                "na_only_cols": na_col_only,
+                "total_rows": data_copy.shape[0],
+                "na_rows": data_copy.shape[0] - rows_after_dropna,
+                "non_na_rows": rows_after_dropna,
+                "total_cells": total_cells,
+                "na_cells": na_total,
+                "na_cells_pct": na_percentage_total,
+                "non_na_cells": total_cells - na_total,
+                "non_na_cells_pct": (total_cells - na_total) / total_cells * 100,
             },
             index=Index(["dataset"]),
         ).T

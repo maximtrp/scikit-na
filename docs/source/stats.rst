@@ -1,24 +1,23 @@
 Statistics
 ==========
 
-In missing data analysis, an important step is to calculate simple descriptive
-and aggregating statistics of missing and non-missing data for each column and
-for the whole dataset. *Scikit-na* attempts to provide useful functions for such
+In missing data analysis, an important step is calculating simple descriptive
+and aggregate statistics for both missing and non-missing data in each column, as
+well as for the entire dataset. *Scikit-na* provides useful functions to facilitate these
 operations.
 
 Summary
 ~~~~~~~
 
-We will use Titanic dataset that contains NA values in three
+We will use Titanic dataset, which contains missing values (NA) in three
 columns: *Age*, *Cabin*, and *Embarked*.
 
 Per column
 ----------
 
-To get a simple summary per each column, we will load a dataset using ``pandas``
-and pass it to ``summary()`` function. The latter supports subsetting a dataset
-with ``columns`` argument. And we will make use of it to cut the width of the
-results table.
+To generate a simple summary for each column, we will load the dataset using ``pandas``
+and pass it to the ``summary()`` function. This function supports subsetting the dataset
+using the ``columns`` argument, which we will use to reduce the width of the results table.
 
 .. code:: python
 
@@ -33,33 +32,33 @@ results table.
 ===========================  ======  =======  ==========  ======  ======  =============  ========  =====  ==========
 ..                              Age    Cabin    Embarked    Fare    Name    PassengerId    Pclass    Sex    Survived
 ===========================  ======  =======  ==========  ======  ======  =============  ========  =====  ==========
-NA count                     177      687           2          0       0              0         0      0           0
-NA, % (per column)            19.87    77.1         0.22       0       0              0         0      0           0
-NA, % (of all NAs)            20.44    79.33        0.23       0       0              0         0      0           0
-NA unique (per column)        19      529           2          0       0              0         0      0           0
-NA unique, % (per column)     10.73    77         100          0       0              0         0      0           0
-Rows left after dropna()     714      204         889        891     891            891       891    891         891
-Rows left after dropna(), %   80.13    22.9        99.78     100     100            100       100    100         100
+na_count                     177      687           2          0       0              0         0      0           0
+na_pct_per_col                19.87    77.1         0.22       0       0              0         0      0           0
+na_pct_total                  20.44    79.33        0.23       0       0              0         0      0           0
+na_unique_per_col             19      529           2          0       0              0         0      0           0
+na_unique_pct_per_col         10.73    77         100          0       0              0         0      0           0
+rows_after_dropna            714      204         889        891     891            891       891    891         891
+rows_dropna_pct               80.13    22.9        99.78     100     100            100       100    100         100
 ===========================  ======  =======  ==========  ======  ======  =============  ========  =====  ==========
 
 Those measures were meant to be self-explanatory:
 
-- *NA count* is the number of NA values in each column.
+- *na_count* is the number of NA values in each column.
 
-- *NA unique* is the number of NA values in each column
-  that are unique for it, i.e. do not intersect with NA values in the other
-  columns (or that will remain in dataset if we drop NA values in the other
-  columns).
+- *na_unique_per_col* is the number of missing values in each column
+  that are unique to it, meaning they do not overlap with NA values in other columns
+  (or the number of values that would remain in the dataset if we drop rows with
+  NA values from the other columns).
 
-- *Rows left after dropna()* shows how many rows will be left in a dataset
-  if we apply ``pandas.Series.dropna()`` method to each column.
+- *rows_after_dropna* is the number of rows that would remain in the dataset
+  if we applied ``pandas.Series.dropna()`` method to each column.
 
 Whole dataset
 -------------
 
-By default, ``summary()`` function returns the results for each column. To get
-the summary of missing data for the whole DataFrame, we should set ``per_column`` argument to
-``False``.
+By default, the ``summary()`` function returns the results for each column. To get
+the summary of missing data for the entire dataset, we should set the ``per_column``
+argument to ``False``.
 
 .. code:: python
 
@@ -68,15 +67,15 @@ the summary of missing data for the whole DataFrame, we should set ``per_column`
 ==============================  =========
 ..                                dataset
 ==============================  =========
-Total columns                        12
-Total rows                          891
-Rows with NA                        708
-Rows without NA                     183
-Total cells                       10692
-Cells with NA                       866
-Cells with NA, %                      8.1
-Cells with non-missing data        9826
-Cells with non-missing data, %       91.9
+total_columns                          12 
+total_rows                            891 
+na_rows                               708 
+non_na_rows                           183 
+total_cells                         10692 
+na_cells                              866 
+na_cells_pct                          8.1 
+non_na_cells                         9826 
+non_na_cells_pct                     91.9 
 ==============================  =========
 
 Descriptive statistics
@@ -94,9 +93,9 @@ types:
     # Quantitative data
     cols_numeric = data.columns[(data.dtypes == float) | (data.dtypes == int)]
 
-We should also specify a column with missing values (NAs) that will be used to
-split the data in the selected columns into two groups: NA (missing) and Filled
-(non-missing).
+We should also specify a column with missing values (NAs) to be used for
+splitting the data in the selected columns into two groups: NA (missing)
+and Filled (non-missing).
 
 Qualitative data
 ----------------
