@@ -1,9 +1,9 @@
-from src import scikit_na as na
 from pandas import read_csv
-import pytest
+from pytest import fixture
+from src import scikit_na as na
 
 
-@pytest.fixture
+@fixture
 def data():
     return read_csv("./tests/titanic_dataset.csv")
 
