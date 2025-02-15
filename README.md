@@ -1,4 +1,6 @@
-# scikit-na
+![scikit-na logo](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/logo.png)
+
+---
 
 [![Documentation](https://readthedocs.org/projects/scikit-na/badge/?version=latest)](https://readthedocs.org/projects/scikit-na/builds/)
 [![Code Quality](https://app.codacy.com/project/badge/Grade/122fd9ccc0da40a4a6cfce8eac592fd2)](https://www.codacy.com/gh/maximtrp/scikit-na/dashboard)
