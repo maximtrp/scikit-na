@@ -25,8 +25,8 @@ from src.scikit_na._stats import (
 test_hypothesis.__test__ = False  # type: ignore[attr-defined]
 
 
-@pytest.fixture
-def sample_data():
+@pytest.fixture(name="sample_data")
+def fixture_sample_data():
     """Create a sample DataFrame with mixed column types for testing."""
     return DataFrame(
         {
@@ -41,8 +41,8 @@ def sample_data():
     )
 
 
-@pytest.fixture
-def data_with_na():
+@pytest.fixture(name="data_with_na")
+def fixture_data_with_na():
     """Create a sample DataFrame with missing values for testing."""
     df = DataFrame(
         {
@@ -55,8 +55,8 @@ def data_with_na():
     return df
 
 
-@pytest.fixture
-def correlation_data():
+@pytest.fixture(name="correlation_data")
+def fixture_correlation_data():
     """Create data for correlation testing."""
     np.random.seed(42)
     x = np.random.normal(0, 1, 100)
@@ -75,8 +75,8 @@ def correlation_data():
     return df
 
 
-@pytest.fixture
-def model_data():
+@pytest.fixture(name="model_data")
+def fixture_model_data():
     """Create data for model testing."""
     np.random.seed(42)
     x1 = np.random.normal(0, 1, 100)
@@ -415,4 +415,3 @@ def test_test_hypothesis(model_data):
 
     assert isinstance(result, dict)
     assert "x1" in result
-

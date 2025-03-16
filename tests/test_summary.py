@@ -3,8 +3,8 @@ from pytest import fixture
 from src import scikit_na as na
 
 
-@fixture
-def data():
+@fixture(name="data")
+def fixture_data():
     return read_csv("./tests/titanic_dataset.csv")
 
 

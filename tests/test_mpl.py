@@ -6,7 +6,6 @@ from pandas import DataFrame
 
 # Try to import matplotlib, skip tests if not available
 try:
-    import matplotlib.pyplot as plt
     from matplotlib.axes import Axes
     from src.scikit_na.mpl._mpl import (
         plot_corr,
@@ -24,8 +23,8 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not MPL_AVAILABLE, reason="Matplotlib is not available")
 
 
-@pytest.fixture
-def sample_data():
+@pytest.fixture(name="sample_data")
+def fixture_sample_data():
     """Create a sample DataFrame with mixed data types for testing."""
     np.random.seed(42)
     df = DataFrame(
@@ -49,8 +48,8 @@ def sample_data():
     return df
 
 
-@pytest.fixture
-def na_info_data():
+@pytest.fixture(name="na_info_data")
+def fixture_na_info_data():
     """Create a sample DataFrame with NA information for testing plot_stats."""
     return DataFrame(
         {"A": [10, 20.0, 30.0, 40, 50.0], "B": [5, 10.0, 15.0, 20, 25.0]},
@@ -64,19 +63,7 @@ def na_info_data():
     )
 
 
-@pytest.fixture
-def setup_and_teardown():
-    """Setup and teardown for matplotlib tests."""
-    # Setup
-    plt.figure()
-
-    yield
-
-    # Teardown
-    plt.close("all")
-
-
-def test_plot_corr(sample_data, setup_and_teardown):
+def test_plot_corr(sample_data):
     """Test plot_corr function."""
     ax = plot_corr(data=sample_data, columns=["numeric1", "numeric2"])
 
@@ -87,7 +74,7 @@ def test_plot_corr(sample_data, setup_and_teardown):
     assert ax.get_title() is not None
 
 
-def test_plot_stats(na_info_data, setup_and_teardown):
+def test_plot_stats(na_info_data):
     """Test plot_stats function."""
     ax = plot_stats(na_info=na_info_data, idxstr="na_count")
 
@@ -98,7 +85,7 @@ def test_plot_stats(na_info_data, setup_and_teardown):
     assert ax.get_title() is not None
 
 
-def test_plot_heatmap(sample_data, setup_and_teardown):
+def test_plot_heatmap(sample_data):
     """Test plot_heatmap function."""
     ax = plot_heatmap(data=sample_data, columns=["numeric1", "numeric2"])
 
@@ -109,7 +96,7 @@ def test_plot_heatmap(sample_data, setup_and_teardown):
     assert ax.get_title() is not None
 
 
-def test_plot_hist(sample_data, setup_and_teardown):
+def test_plot_hist(sample_data):
     """Test plot_hist function."""
     ax = plot_hist(data=sample_data, col="numeric1", col_na="numeric1_na")
 
@@ -120,7 +107,7 @@ def test_plot_hist(sample_data, setup_and_teardown):
     assert ax.get_title() is not None
 
 
-def test_plot_kde(sample_data, setup_and_teardown):
+def test_plot_kde(sample_data):
     """Test plot_kde function."""
     ax = plot_kde(data=sample_data, col="numeric1", col_na="numeric1_na")
 
@@ -131,7 +118,7 @@ def test_plot_kde(sample_data, setup_and_teardown):
     assert ax.get_title() is not None
 
 
-def test_plot_corr_with_options(sample_data, setup_and_teardown):
+def test_plot_corr_with_options(sample_data):
     """Test plot_corr function with various options."""
     ax = plot_corr(
         data=sample_data,
@@ -144,14 +131,14 @@ def test_plot_corr_with_options(sample_data, setup_and_teardown):
     assert isinstance(ax, Axes)
 
 
-def test_plot_stats_with_options(na_info_data, setup_and_teardown):
+def test_plot_stats_with_options(na_info_data):
     """Test plot_stats function with various options."""
     ax = plot_stats(na_info=na_info_data, idxint=0)
 
     assert isinstance(ax, Axes)
 
 
-def test_plot_hist_with_options(sample_data, setup_and_teardown):
+def test_plot_hist_with_options(sample_data):
     """Test plot_hist function with various options."""
     ax = plot_hist(
         data=sample_data,
@@ -166,7 +153,7 @@ def test_plot_hist_with_options(sample_data, setup_and_teardown):
     assert isinstance(ax, Axes)
 
 
-def test_plot_kde_with_options(sample_data, setup_and_teardown):
+def test_plot_kde_with_options(sample_data):
     """Test plot_kde function with various options."""
     ax = plot_kde(
         data=sample_data,
@@ -178,4 +165,3 @@ def test_plot_kde_with_options(sample_data, setup_and_teardown):
     )
 
     assert isinstance(ax, Axes)
-

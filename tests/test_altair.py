@@ -27,8 +27,8 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
 
 
-@pytest.fixture
-def sample_data():
+@pytest.fixture(name="sample_data")
+def fixture_sample_data():
     """Create a sample DataFrame with mixed data types for testing."""
     np.random.seed(42)
     df = DataFrame(
@@ -197,4 +197,3 @@ def test_plot_corr_with_options(sample_data):
     )
 
     assert isinstance(chart, alt.LayerChart)
-
