@@ -7,12 +7,13 @@ from pandas import DataFrame
 # Try to import matplotlib, skip tests if not available
 try:
     from matplotlib.axes import Axes
+
     from src.scikit_na.mpl._mpl import (
         plot_corr,
-        plot_stats,
         plot_heatmap,
         plot_hist,
         plot_kde,
+        plot_stats,
     )
 
     MPL_AVAILABLE = True
@@ -32,7 +33,7 @@ def fixture_sample_data():
             "numeric1": np.random.normal(0, 1, 100),
             "numeric2": np.random.normal(5, 2, 100),
             "category": np.random.choice(["A", "B", "C"], 100),
-        }
+        },
     )
 
     # Add some NAs

@@ -1,22 +1,28 @@
-"""Matplotlib-backed visualization"""
+"""Matplotlib-backed visualization."""
 
-__all__ = ["plot_corr", "plot_stats", "plot_heatmap", "plot_hist", "plot_kde"]
-from typing import List, Optional, Sequence
-from matplotlib.typing import ColorType
-from pandas import DataFrame
-from numpy import fill_diagonal, nan
-from seaborn import heatmap, histplot, kdeplot, barplot, diverging_palette
+from __future__ import annotations
+
+__all__ = ["plot_corr", "plot_heatmap", "plot_hist", "plot_kde", "plot_stats"]
+
+from collections.abc import Sequence
+from typing import List
+
 from matplotlib.axes import Axes
 from matplotlib.patches import Patch
-from .._stats import correlate, _select_cols
+from matplotlib.typing import ColorType
+from numpy import fill_diagonal, nan
+from pandas import DataFrame
+from seaborn import barplot, diverging_palette, heatmap, histplot, kdeplot
+
+from .._stats import _select_cols, correlate
 
 
 def plot_corr(
     data: DataFrame,
-    columns: Optional[Sequence[str]] = None,
+    columns: Sequence[str] | None = None,
     mask_diag: bool = True,
-    corr_kws: Optional[dict] = None,
-    heat_kws: Optional[dict] = None,
+    corr_kws: dict | None = None,
+    heat_kws: dict | None = None,
 ) -> Axes:
     """Plot a correlation heatmap.
 
@@ -37,6 +43,7 @@ def plot_corr(
     -------
     matplotlib.axes._subplots.AxesSubplot
         Heatmap AxesSubplot object.
+
     """
     if not heat_kws:
         heat_kws = {
@@ -60,8 +67,8 @@ def plot_corr(
 
 def plot_stats(
     na_info: DataFrame,
-    idxstr: Optional[str] = None,
-    idxint: Optional[int] = None,
+    idxstr: str | None = None,
+    idxint: int | None = None,
     **kwargs,
 ) -> Axes:
     """Plot barplot with NA descriptive statistics.
@@ -86,6 +93,7 @@ def plot_stats(
     ------
     ValueError
         Raised if neither ``idxstr`` nor ``idxint`` are passed.
+
     """
     if not (idxstr is not None or idxint is not None):
         raise ValueError("Error: `idxstr` or `idxint` must be specified")
@@ -155,15 +163,15 @@ def plot_stats(
 
 def plot_heatmap(
     data: DataFrame,
-    columns: Optional[Sequence[str]] = None,
+    columns: Sequence[str] | None = None,
     droppable: bool = True,
     sort: bool = True,
-    cmap: Optional[List[ColorType]] = None,
-    names: Optional[Sequence[str]] = None,
+    cmap: List[ColorType] | None = None,
+    names: Sequence[str] | None = None,
     yaxis: bool = False,
     xaxis: bool = True,
-    legend_kws: Optional[dict] = None,
-    sb_kws: Optional[dict] = None,
+    legend_kws: dict | None = None,
+    sb_kws: dict | None = None,
 ) -> Axes:
     """NA heatmap. Plots NA values as red lines and normal values
     as black lines.
@@ -201,6 +209,7 @@ def plot_heatmap(
     -------
     matplotlib.axes._subplots.AxesSubplot
         AxesSubplot object.
+
     """
     if not cmap:
         cmap = ["green", "orange", "red"]
@@ -347,7 +356,7 @@ def plot_hist(
     col_na_fmt: str = '"{}" is NA',
     stat: str = "density",
     common_norm: bool = False,
-    hist_kws: Optional[dict] = None,
+    hist_kws: dict | None = None,
 ) -> Axes:
     """Histogram plot to compare distributions of values in column `col`
     split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
@@ -371,6 +380,7 @@ def plot_hist(
     -------
     SubplotBase
         AxesSubplot returned by :py:meth:`seaborn.histplot`.
+
     """
     if not hist_kws:
         hist_kws = {"stat": stat, "common_norm": common_norm}
@@ -388,7 +398,7 @@ def plot_kde(
     col_na: str,
     col_na_fmt: str = '"{}" is NA',
     common_norm: bool = False,
-    kde_kws: Optional[dict] = None,
+    kde_kws: dict | None = None,
 ) -> Axes:
     """KDE plot to compare distributions of values in column `col`
     split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
@@ -412,6 +422,7 @@ def plot_kde(
     -------
     SubplotBase
         AxesSubplot returned by :py:meth:`seaborn.kdeplot()`.
+
     """
     if not kde_kws:
         kde_kws = {"common_norm": common_norm}

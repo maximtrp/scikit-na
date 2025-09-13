@@ -1,63 +1,49 @@
 """Interactive report."""
 
+from __future__ import annotations
+
 __all__ = ["report"]
-from typing import Any, Dict, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import Any, Dict
+
+from IPython.display import display
 from ipywidgets import widgets
-from pandas import DataFrame
 from numpy import array, random, setdiff1d
-from .altair import plot_corr, plot_hist, plot_stairs, plot_heatmap, plot_kde
+from pandas import DataFrame
+
 from ._stats import (
-    describe,
-    summary,
-    _select_cols,
     _get_nominal_cols,
     _get_numeric_cols,
+    _select_cols,
+    describe,
+    summary,
 )
+from .altair import plot_corr, plot_heatmap, plot_hist, plot_kde, plot_stairs
 
 
-def _create_summary_tab(
-    data: DataFrame, 
-    cols: list, 
-    round_dec: int
-) -> widgets.VBox:
+def _create_summary_tab(data: DataFrame, cols: list, round_dec: int) -> widgets.VBox:
     """Create the summary tab with column selection and tables."""
-    from IPython.display import display
-    
     # Table with per column summary
     summary_table = widgets.Output()
-    summary_table.append_display_data(
-        summary(data, columns=cols, per_column=True).round(round_dec)
-    )
+    summary_table.append_display_data(summary(data, columns=cols, per_column=True).round(round_dec))
     summary_table_accordion = widgets.Accordion(children=[summary_table])
     summary_table_accordion.set_title(0, "NA summary (per each column)")
     summary_table_accordion.selected_index = 0
 
     # Table with total summary
     total_summary_table = widgets.Output()
-    total_summary_table.append_display_data(
-        summary(data, columns=cols, per_column=False).round(round_dec)
-    )
+    total_summary_table.append_display_data(summary(data, columns=cols, per_column=False).round(round_dec))
     total_summary_accordion = widgets.Accordion(children=[total_summary_table])
-    total_summary_accordion.set_title(
-        0, "NA summary for the whole dataset (across selected columns)"
-    )
+    total_summary_accordion.set_title(0, "NA summary for the whole dataset (across selected columns)")
 
     # Columns selection callback
     def _on_col_select(names):
         summary_table.clear_output(wait=False)
         total_summary_table.clear_output(wait=False)
         with summary_table:
-            display(
-                summary(data, columns=array(names["new"]), per_column=True).round(
-                    round_dec
-                )
-            )
+            display(summary(data, columns=array(names["new"]), per_column=True).round(round_dec))
         with total_summary_table:
-            display(
-                summary(data, columns=array(names["new"]), per_column=False).round(
-                    round_dec
-                )
-            )
+            display(summary(data, columns=array(names["new"]), per_column=False).round(round_dec))
 
     select_cols = widgets.SelectMultiple(options=cols, rows=6)
     select_cols.observe(_on_col_select, names="value")
@@ -65,15 +51,12 @@ def _create_summary_tab(
     select_accordion.set_title(0, "Columns selection")
     select_accordion.selected_index = 0
 
-    return widgets.VBox(
-        [select_accordion, summary_table_accordion, total_summary_accordion]
-    )
+    return widgets.VBox([select_accordion, summary_table_accordion, total_summary_accordion])
 
 
 def _create_visualization_tab(data: DataFrame, cols: list) -> widgets.VBox:
     """Create the visualization tab with stairs plot and heatmap."""
-    from IPython.display import display
-    
+
     # Columns selection callback
     def _on_vis_col_select(names):
         stairs_plot.clear_output(wait=False)
@@ -106,19 +89,10 @@ def _create_visualization_tab(data: DataFrame, cols: list) -> widgets.VBox:
     return widgets.VBox([select_vis_accordion, vis_accordion])
 
 
-def _create_statistics_tab(
-    data: DataFrame, 
-    cols: list, 
-    round_dec: int,
-    layout: widgets.Layout
-) -> widgets.VBox:
+def _create_statistics_tab(data: DataFrame, cols: list, round_dec: int, layout: widgets.Layout) -> widgets.VBox:
     """Create the statistics tab with descriptive statistics."""
-    from IPython.display import display
-    
     # Choose column with most NAs
-    col_with_most_nas = (
-        data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
-    )
+    col_with_most_nas = data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
 
     # Statistics tables
     stats_table = widgets.Output()
@@ -138,32 +112,20 @@ def _create_statistics_tab(
 
         with stats_table:
             try:
-                display(
-                    describe(data, col_na=_col_na, columns=_cols_numeric).round(
-                        round_dec
-                    )
-                )
+                display(describe(data, col_na=_col_na, columns=_cols_numeric).round(round_dec))
             except (ValueError, KeyError, TypeError) as e:
-                display(widgets.HTML(f"Please select numeric columns to describe. Error: {str(e)}"))
+                display(widgets.HTML(f"Please select numeric columns to describe. Error: {e!s}"))
         with stats_table2:
             try:
-                display(
-                    describe(data, col_na=_col_na, columns=_cols_nominal).round(
-                        round_dec
-                    )
-                )
+                display(describe(data, col_na=_col_na, columns=_cols_nominal).round(round_dec))
             except (ValueError, KeyError, TypeError) as e:
-                display(widgets.HTML(f"Please select nominal columns to describe. Error: {str(e)}"))
+                display(widgets.HTML(f"Please select nominal columns to describe. Error: {e!s}"))
 
     # Setting up dropdown and select elements for choosing columns
-    select_stats_col_na_header = widgets.HTML(
-        "<b>Select a column with NAs to group values by</b>"
-    )
+    select_stats_col_na_header = widgets.HTML("<b>Select a column with NAs to group values by</b>")
     select_stats_col_na = widgets.Dropdown(options=cols)
     select_stats_col_na.value = col_with_most_nas
-    select_stats_cols_header = widgets.HTML(
-        "<b>Select columns to calculate descriptive statistics</b>"
-    )
+    select_stats_cols_header = widgets.HTML("<b>Select columns to calculate descriptive statistics</b>")
     select_stats_cols = widgets.SelectMultiple(options=cols, rows=6)
     select_stats_col_na.observe(_on_stats_col_select, names="value")
     select_stats_cols.observe(_on_stats_col_select, names="value")
@@ -189,7 +151,7 @@ def _create_statistics_tab(
     # Initialize statistics tables
     cols_with_num_data = _get_numeric_cols(data, cols)
     numeric_cols_to_describe = setdiff1d(cols_with_num_data, [col_with_most_nas])
-    
+
     try:
         if len(numeric_cols_to_describe) > 0:
             stats_table.append_display_data(
@@ -197,19 +159,19 @@ def _create_statistics_tab(
                     data,
                     col_na=col_with_most_nas,
                     columns=numeric_cols_to_describe,
-                ).round(round_dec)
+                ).round(round_dec),
             )
         else:
             stats_table.append_display_data(widgets.HTML("No numeric columns to describe"))
     except Exception as e:
-        stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {str(e)}"))
-    
+        stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {e!s}"))
+
     stats_table_accordion = widgets.Accordion(children=[stats_table])
     stats_table_accordion.set_title(0, "Descriptive statistics for numeric data")
 
     cols_with_nom_data = _get_nominal_cols(data, cols)
     nominal_cols_to_describe = setdiff1d(cols_with_nom_data, [col_with_most_nas])
-    
+
     try:
         if len(nominal_cols_to_describe) > 0:
             stats_table2.append_display_data(
@@ -217,99 +179,69 @@ def _create_statistics_tab(
                     data,
                     col_na=col_with_most_nas,
                     columns=nominal_cols_to_describe,
-                ).round(round_dec)
+                ).round(round_dec),
             )
         else:
             stats_table2.append_display_data(widgets.HTML("No nominal columns to describe"))
     except Exception as e:
-        stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {str(e)}"))
-    
+        stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {e!s}"))
+
     stats_table2_accordion = widgets.Accordion(children=[stats_table2])
     stats_table2_accordion.set_title(0, "Descriptive statistics for nominal data")
 
-    return widgets.VBox(
-        [select_accordion, stats_table_accordion, stats_table2_accordion]
-    )
+    return widgets.VBox([select_accordion, stats_table_accordion, stats_table2_accordion])
 
 
-def _create_correlation_tab(
-    data: DataFrame, 
-    na_cols: array, 
-    corr_kws: dict
-) -> widgets.HBox:
+def _create_correlation_tab(data: DataFrame, na_cols: array, corr_kws: dict) -> widgets.HBox:
     """Create the correlation tab with heatmap."""
-    from IPython.display import display
-    
     # Correlations heatmap
     corr_image = widgets.Output()
-    
+
     if len(na_cols) > 0:
         # Select a subset of NA columns for initial display
         initial_cols = random.choice(na_cols, min(5, len(na_cols)))
         corr_image.append_display_data(
-            plot_corr(data, columns=initial_cols, **corr_kws).properties(
-                width=400, height=400
-            )
+            plot_corr(data, columns=initial_cols, **corr_kws).properties(width=400, height=400),
         )
     else:
         # No columns with missing values
         corr_image.append_display_data(
-            widgets.HTML("<p>No columns with missing values found for correlation analysis.</p>")
+            widgets.HTML("<p>No columns with missing values found for correlation analysis.</p>"),
         )
-    
+
     corr_image_header = widgets.HTML("<b>NA values correlations</b>")
-    corr_image_box = widgets.VBox(
-        [corr_image_header, corr_image], layout={"align_items": "center"}
-    )
+    corr_image_box = widgets.VBox([corr_image_header, corr_image], layout={"align_items": "center"})
 
     # Columns selection callback
     def _on_corr_col_select(names):
         corr_image.clear_output(wait=False)
         with corr_image:
             if len(names["new"]) > 0:
-                display(
-                    plot_corr(data, columns=names["new"], **corr_kws).properties(
-                        width=400, height=400
-                    )
-                )
+                display(plot_corr(data, columns=names["new"], **corr_kws).properties(width=400, height=400))
             else:
                 display(widgets.HTML("<p>Please select columns for correlation analysis.</p>"))
 
     corr_select_cols = widgets.SelectMultiple(options=na_cols, rows=10)
     corr_select_cols.observe(_on_corr_col_select, names="value")
     corr_select_header = widgets.HTML("<b>Select columns to calculate correlations</b>")
-    corr_select_box = widgets.VBox(
-        [corr_select_header, corr_select_cols], layout={"align_items": "center"}
-    )
+    corr_select_box = widgets.VBox([corr_select_header, corr_select_cols], layout={"align_items": "center"})
 
     return widgets.HBox([corr_image_box, corr_select_box])
 
 
-def _create_distributions_tab(
-    data: DataFrame, 
-    cols: list, 
-    dist_kws: dict
-) -> widgets.HBox:
+def _create_distributions_tab(data: DataFrame, cols: list, dist_kws: dict) -> widgets.HBox:
     """Create the distributions tab with histograms and KDE plots."""
-    from IPython.display import display
-    
     # Choose column with most NAs and a random column
-    col_with_most_nas = (
-        data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
-    )
+    col_with_most_nas = data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
     random_col = random.choice(setdiff1d(cols, [col_with_most_nas]))
 
     # Distribution plot
     dist_image = widgets.Output()
     dist_image.append_display_data(
-        plot_hist(
-            data, col=random_col, col_na=col_with_most_nas, **dist_kws
-        ).properties(width=400)
+        plot_hist(data, col=random_col, col_na=col_with_most_nas, **dist_kws).properties(width=400),
     )
     dist_image_header = widgets.HTML("<b>Distributions of values</b>")
-    dist_image_box = widgets.VBox(
-        [dist_image_header, dist_image], layout={"align_items": "center"}
-    )
+    dist_image_box = widgets.VBox([dist_image_header, dist_image], layout={"align_items": "center"})
 
     def _on_dist_col_select(_):
         col = dist_col_select.value
@@ -321,17 +253,11 @@ def _create_distributions_tab(
             if col == na_col:
                 display(widgets.HTML("Select different columns"))
             else:
-                display(
-                    plot_func(data, col=col, col_na=na_col, **dist_kws).properties(
-                        width=400
-                    )
-                )
+                display(plot_func(data, col=col, col_na=na_col, **dist_kws).properties(width=400))
 
     # Control widgets
     dist_kind_header = widgets.HTML("<b>Plot kind</b>")
-    dist_kind_select = widgets.Dropdown(
-        options=[("Histogram", "hist"), ("Density", "kde")]
-    )
+    dist_kind_select = widgets.Dropdown(options=[("Histogram", "hist"), ("Density", "kde")])
     dist_kind_select.observe(_on_dist_col_select, names="value")
 
     na_col_header = widgets.HTML("<b>Column with NA values</b>")
@@ -355,18 +281,18 @@ def _create_distributions_tab(
         ],
         layout={"align_items": "center"},
     )
-    
+
     return widgets.HBox([dist_image_box, selects_box])
 
 
 def report(
     data: DataFrame,
-    columns: Optional[Sequence[str]] = None,
-    layout: Optional[widgets.Layout] = None,
+    columns: Sequence[str] | None = None,
+    layout: widgets.Layout | None = None,
     round_dec: int = 2,
-    corr_kws: Optional[Dict[str, Any]] = None,
-    heat_kws: Optional[Dict[str, Any]] = None,
-    dist_kws: Optional[Dict[str, Any]] = None,
+    corr_kws: Dict[str, Any] | None = None,
+    heat_kws: Dict[str, Any] | None = None,
+    dist_kws: Dict[str, Any] | None = None,
 ) -> widgets.Tab:
     """Interactive report.
 
@@ -391,6 +317,7 @@ def report(
     -------
     widgets.Tab
         Interactive report with multiple tabs.
+
     """
     # Initialize default parameters
     corr_kws = corr_kws or {}
@@ -399,19 +326,9 @@ def report(
 
     # Prepare data
     cols = _select_cols(data, columns).tolist()
-    na_cols = (
-        data.loc[:, cols]
-        .isna()
-        .sum(axis=0)
-        .rename("na_num")
-        .to_frame()
-        .query("na_num > 0")
-        .index.values
-    )
+    na_cols = data.loc[:, cols].isna().sum(axis=0).rename("na_num").to_frame().query("na_num > 0").index.values
 
-    layout = layout or widgets.Layout(
-        grid_template_columns="1fr 1fr", justify_items="center"
-    )
+    layout = layout or widgets.Layout(grid_template_columns="1fr 1fr", justify_items="center")
 
     # Create tabs using helper functions
     summary_tab = _create_summary_tab(data, cols, round_dec)

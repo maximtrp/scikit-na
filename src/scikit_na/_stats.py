@@ -1,18 +1,22 @@
 """Statistical functions."""
 
+from __future__ import annotations
+
 __all__ = ["correlate", "describe", "model", "stairs", "summary", "test_hypothesis"]
+
+from collections.abc import Iterable, Sequence
 from functools import partial
-from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Union
+from typing import Any, Callable, Dict, List
 
 from numpy import array, nan, ndarray, r_, setdiff1d
 from pandas import NA, DataFrame, Index, Series, concat
-from statsmodels.discrete.discrete_model import Logit, BinaryResultsWrapper
+from statsmodels.discrete.discrete_model import BinaryResultsWrapper, Logit
 
 
 def _select_cols(
     data: DataFrame,
-    columns: Optional[Iterable[str]] = None,
-    second_var: Optional[List[str]] = None,
+    columns: Iterable[str] | None = None,
+    second_var: List[str] | None = None,
 ) -> ndarray:
     return array(
         list(col for col in columns)  # noqa: C400
@@ -21,12 +25,12 @@ def _select_cols(
     )
 
 
-def _get_nominal_cols(data: DataFrame, columns: Optional[Sequence[str]] = None) -> ndarray:
+def _get_nominal_cols(data: DataFrame, columns: Sequence[str] | None = None) -> ndarray:
     cols = _select_cols(data, columns)
     return Series(data[cols].dtypes == object).replace({False: NA}).dropna().index.values
 
 
-def _get_numeric_cols(data: DataFrame, columns: Optional[Sequence[str]] = None) -> ndarray:
+def _get_numeric_cols(data: DataFrame, columns: Sequence[str] | None = None) -> ndarray:
     cols = _select_cols(data, columns)
     return Series((data[cols].dtypes == float) | (data[cols].dtypes == int)).replace({False: NA}).dropna().index.values
 
@@ -35,14 +39,14 @@ def _get_unique_na(nas: Series, data: DataFrame, col: str) -> int:
     return (nas & data[col].isna()).sum()
 
 
-def _get_rows_after_dropna(data: DataFrame, col: Optional[str] = None) -> int:
+def _get_rows_after_dropna(data: DataFrame, col: str | None = None) -> int:
     return (data.shape[0] - data.loc[:, col].isna().sum()) if col else data.dropna().shape[0]
 
 
-def _get_rows_after_cum_dropna(data: DataFrame, cols: Optional[List[str]] = None, col: Optional[str] = None) -> int:
+def _get_rows_after_cum_dropna(data: DataFrame, cols: List[str] | None = None, col: str | None = None) -> int:
     if not cols:
         cols = []
-    return data.dropna(subset=(cols + [col] if col else cols)).shape[0]
+    return data.dropna(subset=([*cols, col] if col else cols)).shape[0]
 
 
 def _get_abs_na_count(data: DataFrame, cols: Iterable[str]) -> Series:
@@ -59,7 +63,7 @@ def _get_total_na_count(data: DataFrame, cols: Iterable[str]) -> int:
 
 def summary(
     data: DataFrame,
-    columns: Optional[Iterable[str]] = None,
+    columns: Iterable[str] | None = None,
     per_column: bool = True,
     round_dec: int = 2,
 ) -> DataFrame:
@@ -118,7 +122,7 @@ def summary(
     else:
         rows_after_dropna = _get_rows_after_dropna(data_copy.loc[:, cols])
         total_cells = data_copy.shape[0] * data_copy.shape[1]
-        
+
         # Handle division by zero for empty datasets
         if total_cells > 0:
             na_percentage_total = na_total / total_cells * 100
@@ -126,7 +130,7 @@ def summary(
         else:
             na_percentage_total = 0.0
             non_na_cells_pct = 0.0
-            
+
         na_col_raw = data_copy.isna().sum()
         na_col_num = na_col_raw[na_col_raw > 0].size
         na_col_only = (na_col_raw == data_copy.shape[0]).sum()
@@ -155,7 +159,7 @@ def summary(
 
 def stairs(
     data: DataFrame,
-    columns: Optional[Sequence[str]] = None,
+    columns: Sequence[str] | None = None,
     xlabel: str = "Columns",
     ylabel: str = "Instances",
     tooltip_label: str = "Size difference",
@@ -167,7 +171,7 @@ def stairs(
     ----------
     data : DataFrame
         Input data.
-    columns : Optional[Sequence], optional
+    columns : Sequence[str], optional
         Columns names.
     xlabel : str, optional
         X axis label.
@@ -202,14 +206,14 @@ def stairs(
         data_copy = data_copy.dropna(subset=[col_max_na_name])
         cols = data_copy.columns.tolist()
 
-    stairs_values = array([data.shape[0]] + stairs_values)
-    stairs_labels = [dataset_label] + stairs_labels
+    stairs_values = array([data.shape[0], *stairs_values])
+    stairs_labels = [dataset_label, *stairs_labels]
     data_sizes = DataFrame({xlabel: stairs_labels, ylabel: stairs_values})
     data_sizes[tooltip_label] = data_sizes[ylabel].diff().fillna(0)
     return data_sizes
 
 
-def correlate(data: DataFrame, columns: Optional[Iterable[str]] = None, drop: bool = True, **kwargs: Any) -> DataFrame:
+def correlate(data: DataFrame, columns: Iterable[str] | None = None, drop: bool = True, **kwargs: Any) -> DataFrame:
     """Calculate correlations between columns in terms of NA values.
 
     Parameters
@@ -242,8 +246,8 @@ def correlate(data: DataFrame, columns: Optional[Iterable[str]] = None, drop: bo
 def describe(
     data: DataFrame,
     col_na: str,
-    columns: Optional[Sequence[str]] = None,
-    na_mapping: Optional[Dict[bool, str]] = None,
+    columns: Sequence[str] | None = None,
+    na_mapping: Dict[bool, str] | None = None,
 ) -> DataFrame:
     """Describe data grouped by a column with NA values.
 
@@ -281,10 +285,10 @@ def describe(
 def model(
     data: DataFrame,
     col_na: str,
-    columns: Optional[Sequence[str]] = None,
+    columns: Sequence[str] | None = None,
     intercept: bool = True,
-    fit_kws: Optional[Dict[str, Any]] = None,
-    logit_kws: Optional[Dict[str, Any]] = None,
+    fit_kws: Dict[str, Any] | None = None,
+    logit_kws: Dict[str, Any] | None = None,
 ) -> BinaryResultsWrapper:
     """Logistic regression modeling.
 
@@ -350,8 +354,8 @@ def test_hypothesis(
     data: DataFrame,
     col_na: str,
     test_fn: Callable[..., Any],
-    test_kws: Optional[Dict[str, Any]] = None,
-    columns: Optional[Union[Iterable[str], Dict[str, Callable[..., Any]]]] = None,
+    test_kws: Dict[str, Any] | None = None,
+    columns: Iterable[str] | Dict[str, Callable[..., Any]] | None = None,
     dropna: bool = True,
 ) -> Dict[str, Any]:
     """Test a statistical hypothesis.
@@ -411,6 +415,7 @@ def test_hypothesis(
     ...         'height': mannwhitney_mod,
     ...         'weight': mannwhitney_mod})
     >>> pd.DataFrame(results, index=['statistic', 'p-value'])
+
     """
 
     def _get_groups(data, groups, col, dropna=True):

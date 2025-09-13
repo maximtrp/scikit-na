@@ -7,14 +7,15 @@ from pandas import DataFrame
 # Try to import altair, skip tests if not available
 try:
     import altair as alt
+
     from src.scikit_na.altair._altair import (
+        plot_corr,
+        plot_heatmap,
         plot_hist,
         plot_kde,
-        plot_corr,
         plot_scatter,
-        plot_stairs,
         plot_stairbars,
-        plot_heatmap,
+        plot_stairs,
         view_dist,
     )
 
@@ -80,9 +81,7 @@ def test_plot_kde(sample_data):
 
 def test_plot_scatter(sample_data):
     """Test plot_scatter function."""
-    chart = plot_scatter(
-        data=sample_data, x_col="numeric1", y_col="numeric2", col_na="numeric1_na"
-    )
+    chart = plot_scatter(data=sample_data, x_col="numeric1", y_col="numeric2", col_na="numeric1_na")
 
     # Check that the chart is an Altair Chart object
     assert isinstance(chart, alt.Chart)
