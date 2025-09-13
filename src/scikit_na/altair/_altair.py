@@ -21,7 +21,7 @@ from altair import (
     LayerChart,
     condition,
     data_transformers,
-    selection_multi,
+    selection_point,
     Scale,
     Text,
     value,
@@ -162,7 +162,7 @@ def plot_hist(
     else:
         y_shorthand = "count()"
 
-    selection = selection_multi(fields=[col_na], bind="legend")
+    selection = selection_point(fields=[col_na], bind="legend")
     chart = chart.encode(
         x=X(col, **x_kws),
         y=Y(y_shorthand, **y_kws),
@@ -173,7 +173,7 @@ def plot_hist(
             value(markarea_kws["opacity"] if step else markbar_kws["opacity"]),
             value(0),
         ),
-    ).add_selection(selection)
+    ).add_params(selection)
 
     return chart.configure_axis(
         labelFontSize=font_size, titleFontSize=font_size
@@ -261,13 +261,13 @@ def plot_kde(
     chart = Chart(data_copy, **chart_kws).mark_area(**markarea_kws)
     chart = chart.transform_density(**density_kws)
 
-    selection = selection_multi(fields=[col_na], bind="legend")
+    selection = selection_point(fields=[col_na], bind="legend")
     chart = chart.encode(
         x=X(col, **x_kws),
         y=Y(y_shorthand, **y_kws),
         color=Color(col_na, **color_kws),
         opacity=condition(selection, value(markarea_kws["opacity"]), value(0)),
-    ).add_selection(selection)
+    ).add_params(selection)
 
     return chart.configure_axis(
         labelFontSize=font_size, titleFontSize=font_size
@@ -340,7 +340,7 @@ def plot_scatter(
     data_copy[col_na] = data_copy[col_na].isna().replace(na_replace)
     base = Chart(data_copy)
 
-    selection = selection_multi(fields=[col_na], bind="legend")
+    selection = selection_point(fields=[col_na], bind="legend")
     points = (
         base.mark_circle(**circle_kws)
         .encode(
@@ -349,7 +349,7 @@ def plot_scatter(
             color=Color(col_na, **color_kws),
             opacity=condition(selection, value(circle_kws["opacity"]), value(0)),
         )
-        .add_selection(selection)
+        .add_params(selection)
     )
 
     return points.configure_axis(

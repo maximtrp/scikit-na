@@ -1,7 +1,7 @@
 """Interactive report."""
 
 __all__ = ["report"]
-from typing import Optional, Sequence
+from typing import Any, Dict, Optional, Sequence, Tuple
 from ipywidgets import widgets
 from pandas import DataFrame
 from numpy import array, random, setdiff1d
@@ -15,67 +15,14 @@ from ._stats import (
 )
 
 
-def report(
-    data: DataFrame,
-    columns: Optional[Sequence[str]] = None,
-    layout: Optional[widgets.Layout] = None,
-    round_dec: int = 2,
-    corr_kws: Optional[dict] = None,
-    heat_kws: Optional[dict] = None,
-    dist_kws: Optional[dict] = None,
-):
-    """Interactive report.
-
-    Parameters
-    ----------
-    data : DataFrame
-        Input data.
-    columns : Optional[Sequence[str]], optional
-        Columns names.
-    layout : widgets.Layout, optional
-        Layout object for use in GridBox.
-    round_dec : int, optional
-        Number of decimals for rounding.
-    corr_kws : dict, optional
-        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_corr()`.
-    heat_kws : dict, optional
-        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_heatmap()`.
-    hist_kws : dict, optional
-        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_hist()`.
-
-    Returns
-    -------
-    widgets.Tab
-        Interactive report with multiple tabs.
-    """
+def _create_summary_tab(
+    data: DataFrame, 
+    cols: list, 
+    round_dec: int
+) -> widgets.VBox:
+    """Create the summary tab with column selection and tables."""
     from IPython.display import display
-
-    if not corr_kws:
-        corr_kws = {}
-    if not heat_kws:
-        heat_kws = {}
-    if not dist_kws:
-        dist_kws = {}
-
-    cols = _select_cols(data, columns).tolist()
-    na_cols = (
-        data.loc[:, cols]
-        .isna()
-        .sum(axis=0)
-        .rename("na_num")
-        .to_frame()
-        .query("na_num > 0")
-        .index.values
-    )
-
-    layout = (
-        widgets.Layout(grid_template_columns="1fr 1fr", justify_items="center")
-        if not layout
-        else layout
-    )
-    tab = widgets.Tab()
-
-    # SUMMARY TAB
+    
     # Table with per column summary
     summary_table = widgets.Output()
     summary_table.append_display_data(
@@ -85,7 +32,17 @@ def report(
     summary_table_accordion.set_title(0, "NA summary (per each column)")
     summary_table_accordion.selected_index = 0
 
-    # Columns selection
+    # Table with total summary
+    total_summary_table = widgets.Output()
+    total_summary_table.append_display_data(
+        summary(data, columns=cols, per_column=False).round(round_dec)
+    )
+    total_summary_accordion = widgets.Accordion(children=[total_summary_table])
+    total_summary_accordion.set_title(
+        0, "NA summary for the whole dataset (across selected columns)"
+    )
+
+    # Columns selection callback
     def _on_col_select(names):
         summary_table.clear_output(wait=False)
         total_summary_table.clear_output(wait=False)
@@ -108,23 +65,16 @@ def report(
     select_accordion.set_title(0, "Columns selection")
     select_accordion.selected_index = 0
 
-    # Table with total summary
-    total_summary_table = widgets.Output()
-    total_summary_table.append_display_data(
-        summary(data, columns=cols, per_column=False).round(round_dec)
-    )
-    total_summary_accordion = widgets.Accordion(children=[total_summary_table])
-    total_summary_accordion.set_title(
-        0, "NA summary for the whole dataset (across selected columns)"
-    )
-
-    # Finalizing summary tab
-    summary_tab = widgets.VBox(
+    return widgets.VBox(
         [select_accordion, summary_table_accordion, total_summary_accordion]
     )
 
-    # VISUALIZATION TAB
-    # Columns selection
+
+def _create_visualization_tab(data: DataFrame, cols: list) -> widgets.VBox:
+    """Create the visualization tab with stairs plot and heatmap."""
+    from IPython.display import display
+    
+    # Columns selection callback
     def _on_vis_col_select(names):
         stairs_plot.clear_output(wait=False)
         heatmap_plot.clear_output(wait=False)
@@ -153,14 +103,26 @@ def report(
     vis_accordion.set_title(0, "Stairs plot and heatmap of NA values")
     vis_accordion.selected_index = 0
 
-    # Finalizing tab
-    vis_tab = widgets.VBox([select_vis_accordion, vis_accordion])
+    return widgets.VBox([select_vis_accordion, vis_accordion])
 
-    # SUMMARY TAB
-    # Choosing a column with most NAs
+
+def _create_statistics_tab(
+    data: DataFrame, 
+    cols: list, 
+    round_dec: int,
+    layout: widgets.Layout
+) -> widgets.VBox:
+    """Create the statistics tab with descriptive statistics."""
+    from IPython.display import display
+    
+    # Choose column with most NAs
     col_with_most_nas = (
         data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
     )
+
+    # Statistics tables
+    stats_table = widgets.Output()
+    stats_table2 = widgets.Output()
 
     def _on_stats_col_select(_):
         # Clearing display
@@ -181,8 +143,8 @@ def report(
                         round_dec
                     )
                 )
-            except:
-                display(widgets.HTML("Please select numeric columns to describe"))
+            except (ValueError, KeyError, TypeError) as e:
+                display(widgets.HTML(f"Please select numeric columns to describe. Error: {str(e)}"))
         with stats_table2:
             try:
                 display(
@@ -190,8 +152,8 @@ def report(
                         round_dec
                     )
                 )
-            except:
-                display(widgets.HTML("Please select nominal columns to describe"))
+            except (ValueError, KeyError, TypeError) as e:
+                display(widgets.HTML(f"Please select nominal columns to describe. Error: {str(e)}"))
 
     # Setting up dropdown and select elements for choosing columns
     select_stats_col_na_header = widgets.HTML(
@@ -224,47 +186,94 @@ def report(
     select_accordion.set_title(0, "Columns selection")
     select_accordion.selected_index = 0
 
-    # Statistics for numeric data
+    # Initialize statistics tables
     cols_with_num_data = _get_numeric_cols(data, cols)
-    stats_table = widgets.Output()
-    stats_table.append_display_data(
-        describe(
-            data,
-            col_na=col_with_most_nas,
-            columns=setdiff1d(cols_with_num_data, [col_with_most_nas]),
-        ).round(round_dec)
-    )
+    numeric_cols_to_describe = setdiff1d(cols_with_num_data, [col_with_most_nas])
+    
+    try:
+        if len(numeric_cols_to_describe) > 0:
+            stats_table.append_display_data(
+                describe(
+                    data,
+                    col_na=col_with_most_nas,
+                    columns=numeric_cols_to_describe,
+                ).round(round_dec)
+            )
+        else:
+            stats_table.append_display_data(widgets.HTML("No numeric columns to describe"))
+    except Exception as e:
+        stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {str(e)}"))
+    
     stats_table_accordion = widgets.Accordion(children=[stats_table])
     stats_table_accordion.set_title(0, "Descriptive statistics for numeric data")
 
-    # Statistics for nominal data
     cols_with_nom_data = _get_nominal_cols(data, cols)
-    stats_table2 = widgets.Output()
-    stats_table2.append_display_data(
-        describe(
-            data,
-            col_na=col_with_most_nas,
-            columns=setdiff1d(cols_with_nom_data, [col_with_most_nas]),
-        ).round(round_dec)
-    )
+    nominal_cols_to_describe = setdiff1d(cols_with_nom_data, [col_with_most_nas])
+    
+    try:
+        if len(nominal_cols_to_describe) > 0:
+            stats_table2.append_display_data(
+                describe(
+                    data,
+                    col_na=col_with_most_nas,
+                    columns=nominal_cols_to_describe,
+                ).round(round_dec)
+            )
+        else:
+            stats_table2.append_display_data(widgets.HTML("No nominal columns to describe"))
+    except Exception as e:
+        stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {str(e)}"))
+    
     stats_table2_accordion = widgets.Accordion(children=[stats_table2])
     stats_table2_accordion.set_title(0, "Descriptive statistics for nominal data")
 
-    # Finalizing tab
-    stats_tab = widgets.VBox(
+    return widgets.VBox(
         [select_accordion, stats_table_accordion, stats_table2_accordion]
     )
 
-    # CORRELATION TAB
-    # Columns selection
+
+def _create_correlation_tab(
+    data: DataFrame, 
+    na_cols: array, 
+    corr_kws: dict
+) -> widgets.HBox:
+    """Create the correlation tab with heatmap."""
+    from IPython.display import display
+    
+    # Correlations heatmap
+    corr_image = widgets.Output()
+    
+    if len(na_cols) > 0:
+        # Select a subset of NA columns for initial display
+        initial_cols = random.choice(na_cols, min(5, len(na_cols)))
+        corr_image.append_display_data(
+            plot_corr(data, columns=initial_cols, **corr_kws).properties(
+                width=400, height=400
+            )
+        )
+    else:
+        # No columns with missing values
+        corr_image.append_display_data(
+            widgets.HTML("<p>No columns with missing values found for correlation analysis.</p>")
+        )
+    
+    corr_image_header = widgets.HTML("<b>NA values correlations</b>")
+    corr_image_box = widgets.VBox(
+        [corr_image_header, corr_image], layout={"align_items": "center"}
+    )
+
+    # Columns selection callback
     def _on_corr_col_select(names):
         corr_image.clear_output(wait=False)
         with corr_image:
-            display(
-                plot_corr(data, columns=names["new"], **corr_kws).properties(
-                    width=400, height=400
+            if len(names["new"]) > 0:
+                display(
+                    plot_corr(data, columns=names["new"], **corr_kws).properties(
+                        width=400, height=400
+                    )
                 )
-            )
+            else:
+                display(widgets.HTML("<p>Please select columns for correlation analysis.</p>"))
 
     corr_select_cols = widgets.SelectMultiple(options=na_cols, rows=10)
     corr_select_cols.observe(_on_corr_col_select, names="value")
@@ -273,24 +282,35 @@ def report(
         [corr_select_header, corr_select_cols], layout={"align_items": "center"}
     )
 
-    # Correlations heatmap
-    corr_image = widgets.Output()
-    corr_image.append_display_data(
-        plot_corr(data, columns=random.choice(na_cols, 5), **corr_kws).properties(
-            width=400, height=400
-        )
+    return widgets.HBox([corr_image_box, corr_select_box])
+
+
+def _create_distributions_tab(
+    data: DataFrame, 
+    cols: list, 
+    dist_kws: dict
+) -> widgets.HBox:
+    """Create the distributions tab with histograms and KDE plots."""
+    from IPython.display import display
+    
+    # Choose column with most NAs and a random column
+    col_with_most_nas = (
+        data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
     )
-    corr_image_header = widgets.HTML("<b>NA values correlations</b>")
-    corr_image_box = widgets.VBox(
-        [corr_image_header, corr_image], layout={"align_items": "center"}
+    random_col = random.choice(setdiff1d(cols, [col_with_most_nas]))
+
+    # Distribution plot
+    dist_image = widgets.Output()
+    dist_image.append_display_data(
+        plot_hist(
+            data, col=random_col, col_na=col_with_most_nas, **dist_kws
+        ).properties(width=400)
+    )
+    dist_image_header = widgets.HTML("<b>Distributions of values</b>")
+    dist_image_box = widgets.VBox(
+        [dist_image_header, dist_image], layout={"align_items": "center"}
     )
 
-    # Finalizing correlations tab
-    # corr_tab = widgets.GridBox(
-    #     [corr_image_box, corr_select_box], layout=layout)
-    corr_tab = widgets.HBox([corr_image_box, corr_select_box])
-
-    # DISTRIBUTIONS TAB
     def _on_dist_col_select(_):
         col = dist_col_select.value
         na_col = na_col_select.value
@@ -307,21 +327,7 @@ def report(
                     )
                 )
 
-    # Choosing a random column (except the one with most NAs)
-    random_col = random.choice(setdiff1d(cols, [col_with_most_nas]))
-
-    # Preparing widgets
-    dist_image = widgets.Output()
-    dist_image.append_display_data(
-        plot_hist(
-            data, col=random_col, col_na=col_with_most_nas, **dist_kws
-        ).properties(width=400)
-    )
-    dist_image_header = widgets.HTML("<b>Distributions of values</b>")
-    dist_image_box = widgets.VBox(
-        [dist_image_header, dist_image], layout={"align_items": "center"}
-    )
-
+    # Control widgets
     dist_kind_header = widgets.HTML("<b>Plot kind</b>")
     dist_kind_select = widgets.Dropdown(
         options=[("Histogram", "hist"), ("Density", "kde")]
@@ -349,9 +355,73 @@ def report(
         ],
         layout={"align_items": "center"},
     )
-    dist_tab = widgets.HBox([dist_image_box, selects_box])
+    
+    return widgets.HBox([dist_image_box, selects_box])
 
-    # FINALIZING REPORT INTERFACE
+
+def report(
+    data: DataFrame,
+    columns: Optional[Sequence[str]] = None,
+    layout: Optional[widgets.Layout] = None,
+    round_dec: int = 2,
+    corr_kws: Optional[Dict[str, Any]] = None,
+    heat_kws: Optional[Dict[str, Any]] = None,
+    dist_kws: Optional[Dict[str, Any]] = None,
+) -> widgets.Tab:
+    """Interactive report.
+
+    Parameters
+    ----------
+    data : DataFrame
+        Input data.
+    columns : Optional[Sequence[str]], optional
+        Columns names.
+    layout : widgets.Layout, optional
+        Layout object for use in GridBox.
+    round_dec : int, optional
+        Number of decimals for rounding.
+    corr_kws : dict, optional
+        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_corr()`.
+    heat_kws : dict, optional
+        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_heatmap()`.
+    dist_kws : dict, optional
+        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_hist()`.
+
+    Returns
+    -------
+    widgets.Tab
+        Interactive report with multiple tabs.
+    """
+    # Initialize default parameters
+    corr_kws = corr_kws or {}
+    heat_kws = heat_kws or {}
+    dist_kws = dist_kws or {}
+
+    # Prepare data
+    cols = _select_cols(data, columns).tolist()
+    na_cols = (
+        data.loc[:, cols]
+        .isna()
+        .sum(axis=0)
+        .rename("na_num")
+        .to_frame()
+        .query("na_num > 0")
+        .index.values
+    )
+
+    layout = layout or widgets.Layout(
+        grid_template_columns="1fr 1fr", justify_items="center"
+    )
+
+    # Create tabs using helper functions
+    summary_tab = _create_summary_tab(data, cols, round_dec)
+    vis_tab = _create_visualization_tab(data, cols)
+    stats_tab = _create_statistics_tab(data, cols, round_dec, layout)
+    corr_tab = _create_correlation_tab(data, na_cols, corr_kws)
+    dist_tab = _create_distributions_tab(data, cols, dist_kws)
+
+    # Finalize report interface
+    tab = widgets.Tab()
     tab.children = [summary_tab, vis_tab, stats_tab, corr_tab, dist_tab]
     tab.set_title(0, "Summary")
     tab.set_title(1, "Visualizations")

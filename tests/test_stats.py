@@ -378,22 +378,34 @@ def test_describe(data_with_na):
 def test_model(data_with_na):
     """Test model function."""
     # Create a simple dataset with a clear pattern for the model
+    np.random.seed(42)
     test_df = DataFrame(
         {
-            "x": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            "na_col": [False, False, False, False, False, True, True, True, True, True],
+            "x": np.random.normal(0, 1, 100),
+            "y": np.random.normal(0, 1, 100),
+            "na_col": [1, 2, np.nan, 4, 5] * 20  # Create pattern with NAs
         }
     )
 
     # Test logistic regression with a simple dataset
     try:
-        result = model(test_df, col_na="na_col", columns=["x"])
+        result = model(test_df, col_na="na_col", columns=["x", "y"], fit_kws={'disp': False})
         # If the model runs successfully, check that it has the expected attributes
         assert hasattr(result, "summary")
         assert hasattr(result, "params")
+        assert hasattr(result, "pvalues")
+        # Check return type matches type hint
+        from statsmodels.discrete.discrete_model import BinaryResultsWrapper
+        assert isinstance(result, BinaryResultsWrapper)
     except Exception as e:
         # If there's an error, we'll skip this test
         pytest.skip(f"Model test skipped due to error: {str(e)}")
+
+
+def test_model_with_invalid_column(data_with_na):
+    """Test model function with invalid column."""
+    with pytest.raises(KeyError):
+        model(data_with_na, col_na="nonexistent_col", columns=["A"])
 
 
 def test_test_hypothesis(model_data):
@@ -415,3 +427,111 @@ def test_test_hypothesis(model_data):
 
     assert isinstance(result, dict)
     assert "x1" in result
+
+
+# Additional tests for improved functionality
+def test_summary_return_type_hints(data_with_na):
+    """Test that summary function returns proper types as per type hints."""
+    result = summary(data_with_na)
+    assert isinstance(result, DataFrame)
+    
+    # Test with specific columns (type hint: Optional[Iterable[str]])
+    result_cols = summary(data_with_na, columns=['A', 'B'])
+    assert isinstance(result_cols, DataFrame)
+    assert set(result_cols.columns) == {'A', 'B'}
+
+
+def test_correlate_return_type_hints(data_with_na):
+    """Test that correlate function returns proper types."""
+    result = correlate(data_with_na)
+    assert isinstance(result, DataFrame)
+    
+    # Test with kwargs (type hint: **kwargs: Any)
+    result_kendall = correlate(data_with_na, method='kendall')
+    assert isinstance(result_kendall, DataFrame)
+
+
+def test_describe_return_type_hints(data_with_na):
+    """Test that describe function returns proper types."""
+    # Add a column to group by
+    data_with_na['grouping_col'] = [1, 2, np.nan, 1, 2]
+    
+    result = describe(data_with_na, col_na='grouping_col', columns=['A', 'B'])
+    assert isinstance(result, DataFrame)
+
+
+def test_summary_with_empty_dataframe():
+    """Test summary function with empty DataFrame."""
+    empty_df = DataFrame()
+    
+    # Should handle empty DataFrame gracefully
+    try:
+        result = summary(empty_df)
+        assert isinstance(result, DataFrame)
+    except (ValueError, IndexError):
+        # Expected for empty DataFrame
+        pass
+
+
+def test_correlate_with_no_missing_values():
+    """Test correlate function when no columns have missing values."""
+    no_na_data = DataFrame({
+        'A': [1, 2, 3, 4, 5],
+        'B': [1.1, 2.2, 3.3, 4.4, 5.5]
+    })
+    
+    result = correlate(no_na_data, drop=True)
+    # Should return empty or handle gracefully when no NAs
+    assert isinstance(result, DataFrame)
+
+
+def test_summary_edge_cases(data_with_na):
+    """Test summary function edge cases."""
+    # Test with round_dec=0
+    result = summary(data_with_na, round_dec=0)
+    assert isinstance(result, DataFrame)
+    
+    # Test per_column=False
+    result_dataset = summary(data_with_na, per_column=False)
+    assert isinstance(result_dataset, DataFrame)
+    assert 'dataset' in result_dataset.columns
+
+
+def test_helper_functions_edge_cases():
+    """Test helper functions with edge cases."""
+    # Test with single column DataFrame
+    single_col_df = DataFrame({'A': [1, np.nan, 3]})
+    
+    numeric_cols = _get_numeric_cols(single_col_df)
+    assert 'A' in numeric_cols
+    
+    nominal_cols = _get_nominal_cols(single_col_df)
+    assert len(nominal_cols) == 0  # No nominal columns
+    
+    # Test with all-NA column
+    all_na_df = DataFrame({'A': [np.nan, np.nan, np.nan]})
+    na_count = _get_abs_na_count(all_na_df, ['A'])
+    assert na_count['A'] == 3
+
+
+def test_stairs_function_basic(data_with_na):
+    """Test stairs function basic functionality."""
+    result = stairs(data_with_na)
+    assert isinstance(result, DataFrame)
+    assert 'Columns' in result.columns  # Default xlabel
+    assert 'Instances' in result.columns  # Default ylabel
+
+
+def test_stairs_with_custom_labels(data_with_na):
+    """Test stairs function with custom labels."""
+    result = stairs(
+        data_with_na, 
+        xlabel="Custom X", 
+        ylabel="Custom Y",
+        tooltip_label="Custom Tooltip",
+        dataset_label="Custom Dataset"
+    )
+    assert isinstance(result, DataFrame)
+    assert 'Custom X' in result.columns
+    assert 'Custom Y' in result.columns
+    assert 'Custom Tooltip' in result.columns

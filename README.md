@@ -8,17 +8,24 @@
 [![Downloads](https://static.pepy.tech/badge/scikit-na)](https://pepy.tech/project/scikit-na)
 [![PyPI](https://img.shields.io/pypi/v/scikit-na)](https://pypi.org/project/scikit-na/)
 
-**scikit-na** is a Python package for missing data (NA) analysis.
-The package includes many functions for statistical analysis, modeling,
-and data visualization. The latter is done using
-two packages — [matplotlib](https://matplotlib.org/) and [Altair](https://altair-viz.github.io/).
+**scikit-na** is a comprehensive Python package for missing data (NA) analysis and exploration. It provides statistical functions, interactive visualizations, and export capabilities to help data scientists understand and handle missing values in their datasets.
+
+## Why scikit-na?
+
+- **Comprehensive Analysis**: Get detailed statistics on missing data patterns
+- **Interactive Reports**: Generate widget-based reports for Jupyter notebooks  
+- **Multiple Export Formats**: Share results as CSV, JSON, HTML, or Excel files
+- **Statistical Modeling**: Build logistic regression models to understand missingness
+- **Rich Visualizations**: Create heatmaps, correlation plots, and distribution charts
+- **Hypothesis Testing**: Test for missing completely at random (MCAR) patterns
 
 ![Visualizations](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/titanic_vis.png)
 
 ## Features
 
 - Interactive report (based on [ipywidgets](https://ipywidgets.readthedocs.io/))
-- Descriptive statistics
+- Export functionality (CSV, JSON, HTML, XLSX formats)
+- Descriptive statistics  
 - Regression modeling
 - Hypotheses tests
 - Data visualization
@@ -32,21 +39,61 @@ This will help me spend more time on supporting open-source software.
 
 ## Installation
 
-Package can be installed from PyPi:
+### Basic installation
 
 ```bash
 pip install scikit-na
 ```
 
-or from this repo:
+### With optional dependencies
 
 ```bash
+# For export functionality (Excel support)
+pip install scikit-na[export]
+
+# For development
+pip install scikit-na[dev]
+
+# Install from source
 pip install git+https://github.com/maximtrp/scikit-na.git
 ```
 
-## Example
+## Quick Start
 
-We will use Titanic dataset (from Kaggle) that contains NA values in three columns: Age, Cabin, and Embarked.
+```python
+import scikit_na as na
+import pandas as pd
+
+# Load your data
+data = pd.read_csv('your_dataset.csv')
+
+# Get missing data summary
+summary = na.summary(data)
+print(summary)
+
+# Create interactive report
+report = na.report(data)
+
+# Export results
+na.export_summary(data, 'missing_data_analysis.csv', format='csv')
+```
+
+## Examples
+
+The following examples use the Titanic dataset (from Kaggle) that contains NA values in three columns: Age, Cabin, and Embarked.
+
+### Core Functions
+
+| Function | Description |
+|----------|-------------|
+| `na.summary()` | Comprehensive missing data statistics |
+| `na.correlate()` | Correlations between missing values |
+| `na.describe()` | Descriptive stats grouped by missingness |
+| `na.model()` | Logistic regression for missing patterns |
+| `na.test_hypothesis()` | Statistical tests for MCAR |
+| `na.report()` | Interactive widget-based report |
+| `na.export_summary()` | Export analysis to files |
+| `na.export_report()` | Export interactive reports |
 
 ### Summary
 
@@ -72,7 +119,7 @@ na.summary(data, columns=data.columns.difference(['SibSp', 'Parch', 'Ticket']))
 | na_unique_per_col     |    19 |   529 |        2 |    0 |    0 |           0 |      0 |   0 |        0 |
 | na_unique_pct_per_col | 10.73 |    77 |      100 |    0 |    0 |           0 |      0 |   0 |        0 |
 | rows_after_dropna     |   714 |   204 |      889 |  891 |  891 |         891 |    891 | 891 |      891 |
-| rows_dropna_pct       | 80.13 |  22.9 |    99.78 |  100 |  100 |         100 |    100 | 100 |      100 |
+| rows_after_dropna_pct | 80.13 |  22.9 |    99.78 |  100 |  100 |         100 |    100 | 100 |      100 |
 
 _NA unique_ is the number of NA values per each column that are unique for it,
 i.e. do not intersect with NA values in the other columns (or that will remain
@@ -222,6 +269,67 @@ na.report(data)
 ```
 
 ![Report](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/report_summary.png)
+
+### Export functionality
+
+Export your analysis results to various formats for sharing and further processing:
+
+#### Export summary statistics
+
+```python
+# Export to CSV
+na.export_summary(data, filename='missing_data_summary.csv', format='csv')
+
+# Export to JSON
+na.export_summary(data, filename='summary.json', format='json')
+
+# Export to Excel
+na.export_summary(data, filename='analysis.xlsx', format='xlsx')
+```
+
+#### Export interactive reports
+
+```python
+# Export complete report to HTML
+na.export_report(data, filename='missing_data_report.html', format='html')
+
+# Export with custom columns
+na.export_report(
+    data, 
+    columns=['Age', 'Cabin', 'Embarked'],
+    filename='focused_analysis.html', 
+    format='html'
+)
+```
+
+The export functionality supports:
+- **CSV**: Summary statistics in tabular format
+- **JSON**: Structured data for programmatic access  
+- **HTML**: Interactive reports for web viewing
+- **XLSX**: Excel-compatible spreadsheets
+
+## API Reference
+
+### Statistical Functions
+- `summary(data, columns=None, per_column=True, round_dec=2)` - Missing data statistics
+- `correlate(data, columns=None, drop=True, **kwargs)` - Correlation analysis  
+- `describe(data, col_na, columns=None, na_mapping=None)` - Grouped descriptive stats
+- `model(data, col_na, columns=None, intercept=True, **kwargs)` - Logistic regression
+- `test_hypothesis(data, col_na, test_fn, columns=None, **kwargs)` - Hypothesis testing
+- `stairs(data, columns=None, **kwargs)` - Dataset shrinkage analysis
+
+### Visualization Functions
+- `altair.plot_heatmap(data, **kwargs)` - Missing data heatmap
+- `altair.plot_corr(data, **kwargs)` - Correlation heatmap  
+- `altair.plot_stairs(data, **kwargs)` - Stairs plot
+- `altair.plot_hist(data, col, col_na, **kwargs)` - Missing data histogram
+
+### Export Functions  
+- `export_summary(data, filename, format, **kwargs)` - Export summary statistics
+- `export_report(data, filename, format, **kwargs)` - Export interactive reports
+
+### Interactive Reports
+- `report(data, columns=None, **kwargs)` - Generate interactive widget-based report
 
 ## Contribution
 

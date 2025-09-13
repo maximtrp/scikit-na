@@ -1,42 +1,34 @@
 """Statistical functions."""
 
-__all__ = ["describe", "summary", "correlate", "model", "stairs", "test_hypothesis"]
+__all__ = ["correlate", "describe", "model", "stairs", "summary", "test_hypothesis"]
 from functools import partial
-from typing import Iterable, Union, Optional, Dict, Sequence
-from pandas import Index, concat, DataFrame, Series, NA
-from numpy import array, ndarray, nan, r_, setdiff1d
-from statsmodels.discrete.discrete_model import Logit
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Union
+
+from numpy import array, nan, ndarray, r_, setdiff1d
+from pandas import NA, DataFrame, Index, Series, concat
+from statsmodels.discrete.discrete_model import Logit, BinaryResultsWrapper
 
 
 def _select_cols(
     data: DataFrame,
-    columns: Optional[Iterable] = None,
-    second_var: Optional[list] = None,
+    columns: Optional[Iterable[str]] = None,
+    second_var: Optional[List[str]] = None,
 ) -> ndarray:
     return array(
-        list(col for col in columns)
+        list(col for col in columns)  # noqa: C400
         if columns is not None
-        else (
-            data.columns if second_var is None or len(second_var) == 0 else second_var
-        )
+        else (data.columns if second_var is None or len(second_var) == 0 else second_var),
     )
 
 
-def _get_nominal_cols(data: DataFrame, columns: Optional[Sequence] = None):
+def _get_nominal_cols(data: DataFrame, columns: Optional[Sequence[str]] = None) -> ndarray:
     cols = _select_cols(data, columns)
-    return (
-        Series(data[cols].dtypes == object).replace({False: NA}).dropna().index.values
-    )
+    return Series(data[cols].dtypes == object).replace({False: NA}).dropna().index.values
 
 
-def _get_numeric_cols(data: DataFrame, columns: Optional[Sequence] = None):
+def _get_numeric_cols(data: DataFrame, columns: Optional[Sequence[str]] = None) -> ndarray:
     cols = _select_cols(data, columns)
-    return (
-        Series((data[cols].dtypes == float) | (data[cols].dtypes == int))
-        .replace({False: NA})
-        .dropna()
-        .index.values
-    )
+    return Series((data[cols].dtypes == float) | (data[cols].dtypes == int)).replace({False: NA}).dropna().index.values
 
 
 def _get_unique_na(nas: Series, data: DataFrame, col: str) -> int:
@@ -44,22 +36,16 @@ def _get_unique_na(nas: Series, data: DataFrame, col: str) -> int:
 
 
 def _get_rows_after_dropna(data: DataFrame, col: Optional[str] = None) -> int:
-    return (
-        (data.shape[0] - data.loc[:, col].isna().sum())
-        if col
-        else data.dropna().shape[0]
-    )
+    return (data.shape[0] - data.loc[:, col].isna().sum()) if col else data.dropna().shape[0]
 
 
-def _get_rows_after_cum_dropna(
-    data: DataFrame, cols: Optional[list] = None, col: Optional[str] = None
-) -> int:
+def _get_rows_after_cum_dropna(data: DataFrame, cols: Optional[List[str]] = None, col: Optional[str] = None) -> int:
     if not cols:
         cols = []
     return data.dropna(subset=(cols + [col] if col else cols)).shape[0]
 
 
-def _get_abs_na_count(data: DataFrame, cols: Iterable) -> Series:
+def _get_abs_na_count(data: DataFrame, cols: Iterable[str]) -> Series:
     return data.loc[:, cols].isna().sum(axis=0)
 
 
@@ -67,18 +53,17 @@ def _get_na_perc(data: DataFrame, na_abs: Series) -> Series:
     return na_abs / data.shape[0] * 100
 
 
-def _get_total_na_count(data: DataFrame, cols: Iterable) -> int:
+def _get_total_na_count(data: DataFrame, cols: Iterable[str]) -> int:
     return data.loc[:, cols].isna().sum().sum()
 
 
 def summary(
     data: DataFrame,
-    columns: Optional[Iterable] = None,
+    columns: Optional[Iterable[str]] = None,
     per_column: bool = True,
     round_dec: int = 2,
 ) -> DataFrame:
-    """
-    Summary statistics on NA values.
+    """Summary statistics on NA values.
 
     Parameters
     ----------
@@ -95,6 +80,7 @@ def summary(
     -------
     DataFrame
         Summary on NA values in the input data.
+
     """
     cols = _select_cols(data, columns)
     data_copy = data.loc[:, cols].copy()
@@ -107,23 +93,15 @@ def summary(
 
         na_abs_count = _get_abs_na_count(data_copy, cols).rename("na_count")
         na_percentage = _get_na_perc(data_copy, na_abs_count).rename("na_pct_per_col")
-        na_percentage_total = (
-            (na_abs_count / na_total * 100).rename("na_pct_total").fillna(0)
-        )
-        na_unique = Series(
-            list(map(get_unique_na, cols)), index=cols, name="na_unique_per_col"
-        )
-        na_unique_percentage = (
-            (na_unique / na_abs_count * 100).rename("na_unique_pct_per_col").fillna(0)
-        )
+        na_percentage_total = (na_abs_count / na_total * 100).rename("na_pct_total").fillna(0)
+        na_unique = Series(list(map(get_unique_na, cols)), index=cols, name="na_unique_per_col")
+        na_unique_percentage = (na_unique / na_abs_count * 100).rename("na_unique_pct_per_col").fillna(0)
         rows_after_dropna = Series(
             list(map(get_rows_after_dropna, cols)),
             index=cols,
             name="rows_after_dropna",
         )
-        rows_perc_after_dropna = (rows_after_dropna / data_copy.shape[0] * 100).rename(
-            "rows_after_dropna_pct"
-        )
+        rows_perc_after_dropna = (rows_after_dropna / data_copy.shape[0] * 100).rename("rows_after_dropna_pct")
         na_df = concat(
             (
                 na_abs_count,
@@ -139,8 +117,16 @@ def summary(
         na_df = na_df.T
     else:
         rows_after_dropna = _get_rows_after_dropna(data_copy.loc[:, cols])
-        na_percentage_total = na_total / data_copy.shape[0] / data_copy.shape[1] * 100
         total_cells = data_copy.shape[0] * data_copy.shape[1]
+        
+        # Handle division by zero for empty datasets
+        if total_cells > 0:
+            na_percentage_total = na_total / total_cells * 100
+            non_na_cells_pct = (total_cells - na_total) / total_cells * 100
+        else:
+            na_percentage_total = 0.0
+            non_na_cells_pct = 0.0
+            
         na_col_raw = data_copy.isna().sum()
         na_col_num = na_col_raw[na_col_raw > 0].size
         na_col_only = (na_col_raw == data_copy.shape[0]).sum()
@@ -156,7 +142,7 @@ def summary(
                 "na_cells": na_total,
                 "na_cells_pct": na_percentage_total,
                 "non_na_cells": total_cells - na_total,
-                "non_na_cells_pct": (total_cells - na_total) / total_cells * 100,
+                "non_na_cells_pct": non_na_cells_pct,
             },
             index=Index(["dataset"]),
         ).T
@@ -169,12 +155,12 @@ def summary(
 
 def stairs(
     data: DataFrame,
-    columns: Optional[Sequence] = None,
+    columns: Optional[Sequence[str]] = None,
     xlabel: str = "Columns",
     ylabel: str = "Instances",
     tooltip_label: str = "Size difference",
     dataset_label: str = "(Whole dataset)",
-):
+) -> DataFrame:
     """DataFrame shrinkage on cumulative :py:meth:`pandas.DataFrame.dropna()`.
 
     Parameters
@@ -197,6 +183,7 @@ def stairs(
     DataFrame
         Dataset shrinkage results after cumulative
         :py:meth:`pandas.DataFrame.dropna()`.
+
     """
     cols = _select_cols(data, columns).tolist()
     data_copy = data.loc[:, cols].copy()
@@ -222,11 +209,8 @@ def stairs(
     return data_sizes
 
 
-def correlate(
-    data: DataFrame, columns: Optional[Iterable] = None, drop: bool = True, **kwargs
-) -> DataFrame:
-    """
-    Calculate correlations between columns in terms of NA values.
+def correlate(data: DataFrame, columns: Optional[Iterable[str]] = None, drop: bool = True, **kwargs: Any) -> DataFrame:
+    """Calculate correlations between columns in terms of NA values.
 
     Parameters
     ----------
@@ -243,6 +227,7 @@ def correlate(
     -------
     DataFrame
         Correlation values.
+
     """
     cols = _select_cols(data, columns)
     kwargs.setdefault("method", "spearman")
@@ -257,11 +242,10 @@ def correlate(
 def describe(
     data: DataFrame,
     col_na: str,
-    columns: Optional[Sequence] = None,
-    na_mapping: Optional[dict] = None,
+    columns: Optional[Sequence[str]] = None,
+    na_mapping: Optional[Dict[bool, str]] = None,
 ) -> DataFrame:
-    """
-    Describe data grouped by a column with NA values.
+    """Describe data grouped by a column with NA values.
 
     Parameters
     ----------
@@ -279,6 +263,7 @@ def describe(
     -------
     DataFrame
         Descriptive statistics (mean, median, etc.).
+
     """
     if not na_mapping:
         na_mapping = {True: "NA", False: "Filled"}
@@ -296,11 +281,11 @@ def describe(
 def model(
     data: DataFrame,
     col_na: str,
-    columns: Optional[Sequence] = None,
+    columns: Optional[Sequence[str]] = None,
     intercept: bool = True,
-    fit_kws: Optional[dict] = None,
-    logit_kws: Optional[dict] = None,
-):
+    fit_kws: Optional[Dict[str, Any]] = None,
+    logit_kws: Optional[Dict[str, Any]] = None,
+) -> BinaryResultsWrapper:
     """Logistic regression modeling.
 
     Fit a logistic regression model to NA values encoded as 0 (non-missing)
@@ -336,6 +321,7 @@ def model(
     ...     col_na='column_with_NAs',
     ...     columns=['age', 'height', 'weight'])
     >>> model.summary()
+
     """
     cols = _select_cols(data, columns)
     cols_pred = setdiff1d(cols, [col_na])
@@ -363,11 +349,11 @@ def model(
 def test_hypothesis(
     data: DataFrame,
     col_na: str,
-    test_fn: callable,
-    test_kws: Optional[dict] = None,
-    columns: Optional[Union[Iterable[str], Dict[str, callable]]] = None,
+    test_fn: Callable[..., Any],
+    test_kws: Optional[Dict[str, Any]] = None,
+    columns: Optional[Union[Iterable[str], Dict[str, Callable[..., Any]]]] = None,
     dropna: bool = True,
-) -> Dict[str, object]:
+) -> Dict[str, Any]:
     """Test a statistical hypothesis.
 
     This function can be used to find evidence against missing
