@@ -1,10 +1,9 @@
 ![scikit-na logo](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/logo.png)
 
 ---
-
+[![Test](https://github.com/maximtrp/scikit-na/actions/workflows/python-test.yml/badge.svg)](https://github.com/maximtrp/scikit-na/actions/workflows/python-test.yml)
+[![Coverage](https://app.codacy.com/project/badge/Coverage/122fd9ccc0da40a4a6cfce8eac592fd2)](https://app.codacy.com/gh/maximtrp/scikit-na/dashboard)
 [![Documentation](https://readthedocs.org/projects/scikit-na/badge/?version=latest)](https://readthedocs.org/projects/scikit-na/builds/)
-[![Code Quality](https://app.codacy.com/project/badge/Grade/122fd9ccc0da40a4a6cfce8eac592fd2)](https://www.codacy.com/gh/maximtrp/scikit-na/dashboard)
-[![Coverage](https://app.codacy.com/project/badge/Coverage/122fd9ccc0da40a4a6cfce8eac592fd2)](https://app.codacy.com/gh/maximtrp/scikit-na/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
 [![Downloads](https://static.pepy.tech/badge/scikit-na)](https://pepy.tech/project/scikit-na)
 [![PyPI](https://img.shields.io/pypi/v/scikit-na)](https://pypi.org/project/scikit-na/)
 
