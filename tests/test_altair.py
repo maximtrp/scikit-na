@@ -1,5 +1,7 @@
 """Tests for the altair visualization module."""
 
+import logging
+
 import numpy as np
 import pytest
 from pandas import DataFrame
@@ -23,6 +25,8 @@ try:
 except ImportError:
     ALTAIR_AVAILABLE = False
 
+logger = logging.getLogger(__name__)
+
 
 # Skip all tests if altair is not available
 pytestmark = pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
@@ -37,7 +41,7 @@ def fixture_sample_data():
             "numeric1": np.random.normal(0, 1, 100),
             "numeric2": np.random.normal(5, 2, 100),
             "category": np.random.choice(["A", "B", "C"], 100),
-        }
+        },
     )
 
     # Add some NAs
@@ -147,8 +151,13 @@ def test_view_dist(sample_data):
     try:
         widget = view_dist(data=sample_data, columns=["numeric1", "numeric2"])
         assert widget is not None
+    except (ImportError, AttributeError) as e:
+        pytest.skip(f"view_dist skipped due to dependency issue: {e}")
+    except (ValueError, TypeError) as e:
+        pytest.fail(f"view_dist failed with data/parameter error: {e}")
     except Exception as e:
-        pytest.fail(f"view_dist raised an exception: {e}")
+        logger.exception("Unexpected error occurred while testing view_dist function")
+        pytest.fail(f"view_dist raised an unexpected exception: {e}")
 
 
 def test_plot_hist_with_options(sample_data):

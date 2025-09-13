@@ -5,6 +5,7 @@ from __future__ import annotations
 __all__ = ["export_report", "export_summary"]
 
 import json
+import logging
 from pathlib import Path
 from typing import Dict, Literal
 
@@ -12,6 +13,8 @@ import pandas as pd
 from pandas import DataFrame
 
 from ._stats import correlate, describe, summary
+
+logger = logging.getLogger(__name__)
 
 ExportFormat = Literal["csv", "json", "html", "xlsx"]
 
@@ -118,7 +121,14 @@ def export_report(
                 corr_path = output_dir / "na_correlations.csv"
                 corr_df.round(round_dec).to_csv(corr_path)
                 exported_files["correlations"] = corr_path
+        except (ValueError, TypeError, KeyError) as e:
+            logger.warning("Could not generate correlations due to data/parameter issue: %s", e)
+            print(f"Warning: Could not generate correlations: {e}")
+        except (ImportError, AttributeError) as e:
+            logger.warning("Could not generate correlations due to missing dependencies: %s", e)
+            print(f"Warning: Could not generate correlations: {e}")
         except Exception as e:
+            logger.exception("Unexpected error occurred while generating correlations")
             print(f"Warning: Could not generate correlations: {e}")
 
     if include_descriptions:
@@ -139,7 +149,14 @@ def export_report(
                 desc_path = output_dir / f"descriptive_stats_{col_most_na}.csv"
                 desc_df.round(round_dec).to_csv(desc_path)
                 exported_files["descriptive_stats"] = desc_path
+        except (ValueError, TypeError, KeyError, IndexError) as e:
+            logger.warning("Could not generate descriptive statistics due to data/parameter issue: %s", e)
+            print(f"Warning: Could not generate descriptive statistics: {e}")
+        except (ImportError, AttributeError) as e:
+            logger.warning("Could not generate descriptive statistics due to missing dependencies: %s", e)
+            print(f"Warning: Could not generate descriptive statistics: {e}")
         except Exception as e:
+            logger.exception("Unexpected error occurred while generating descriptive statistics")
             print(f"Warning: Could not generate descriptive statistics: {e}")
 
     # Generate a summary report

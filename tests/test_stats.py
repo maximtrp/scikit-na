@@ -1,3 +1,4 @@
+import logging
 import numpy as np
 import pandas as pd
 import pytest
@@ -21,6 +22,8 @@ from src.scikit_na._stats import (
     summary,
     test_hypothesis,
 )
+
+logger = logging.getLogger(__name__)
 
 # Skip the test_hypothesis function as it is a helper function
 test_hypothesis.__test__ = False  # type: ignore[attr-defined]
@@ -393,9 +396,15 @@ def test_model(data_with_na):
         from statsmodels.discrete.discrete_model import BinaryResultsWrapper
 
         assert isinstance(result, BinaryResultsWrapper)
+    except (ImportError, AttributeError) as e:
+        logger.exception("Model test failed due to missing dependencies or attribute error")
+        pytest.skip(f"Model test skipped due to dependency issue: {e}")
+    except (ValueError, TypeError, KeyError) as e:
+        logger.exception("Model test failed due to invalid data or parameters")
+        pytest.skip(f"Model test skipped due to data/parameter error: {e}")
     except Exception as e:
-        # If there's an error, we'll skip this test
-        pytest.skip(f"Model test skipped due to error: {str(e)}")
+        logger.exception("Unexpected error occurred while testing model function")
+        pytest.skip(f"Model test skipped due to unexpected error: {e}")
 
 
 def test_model_with_invalid_column(data_with_na):

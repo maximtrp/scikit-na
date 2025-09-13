@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 __all__ = ["report"]
+import logging
 from collections.abc import Sequence
 from typing import Any, Dict
 
@@ -19,6 +20,8 @@ from ._stats import (
     summary,
 )
 from .altair import plot_corr, plot_heatmap, plot_hist, plot_kde, plot_stairs
+
+logger = logging.getLogger(__name__)
 
 
 def _create_summary_tab(data: DataFrame, cols: list, round_dec: int) -> widgets.VBox:
@@ -163,7 +166,14 @@ def _create_statistics_tab(data: DataFrame, cols: list, round_dec: int, layout: 
             )
         else:
             stats_table.append_display_data(widgets.HTML("No numeric columns to describe"))
+    except (ValueError, TypeError, KeyError, IndexError) as e:
+        logger.warning("Could not describe numeric columns due to data/parameter issue: %s", e)
+        stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {e!s}"))
+    except (ImportError, AttributeError) as e:
+        logger.warning("Could not describe numeric columns due to missing dependencies: %s", e)
+        stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {e!s}"))
     except Exception as e:
+        logger.exception("Unexpected error occurred while describing numeric columns")
         stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {e!s}"))
 
     stats_table_accordion = widgets.Accordion(children=[stats_table])
@@ -183,7 +193,14 @@ def _create_statistics_tab(data: DataFrame, cols: list, round_dec: int, layout: 
             )
         else:
             stats_table2.append_display_data(widgets.HTML("No nominal columns to describe"))
+    except (ValueError, TypeError, KeyError, IndexError) as e:
+        logger.warning("Could not describe nominal columns due to data/parameter issue: %s", e)
+        stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {e!s}"))
+    except (ImportError, AttributeError) as e:
+        logger.warning("Could not describe nominal columns due to missing dependencies: %s", e)
+        stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {e!s}"))
     except Exception as e:
+        logger.exception("Unexpected error occurred while describing nominal columns")
         stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {e!s}"))
 
     stats_table2_accordion = widgets.Accordion(children=[stats_table2])

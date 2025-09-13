@@ -1,5 +1,6 @@
 """Tests for the report module."""
 
+import logging
 from unittest.mock import patch
 
 import numpy as np
@@ -19,6 +20,8 @@ except ImportError:
 
 # Skip all tests if ipywidgets is not available
 pytestmark = pytest.mark.skipif(not IPYWIDGETS_AVAILABLE, reason="ipywidgets is not available")
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(name="sample_data")
@@ -196,9 +199,15 @@ def test_report_error_handling_in_describe(sample_data):
     try:
         tab = report(problem_data)
         assert isinstance(tab, widgets.Tab)
-    except Exception:
-        # If it fails, that's expected for some edge cases
-        pass
+    except (ImportError, AttributeError) as e:
+        logger.exception("Report failed due to missing dependencies or attribute error")
+        pytest.skip(f"Report skipped due to dependency issue: {e}")
+    except (ValueError, TypeError, KeyError) as e:
+        logger.exception("Report failed due to invalid data or parameters")
+        pytest.skip(f"Report failed with expected data error: {e}")
+    except Exception as e:
+        logger.exception("Unexpected error occurred while testing report function")
+        pytest.skip(f"Report failed with unexpected error: {e}")
 
 
 def test_report_return_type_hint(sample_data):
@@ -225,7 +234,7 @@ def test_report_with_empty_data():
     empty_df = DataFrame()
 
     with pytest.raises((ValueError, IndexError, TypeError)):
-        result = report(empty_df)
+        report(empty_df)
 
 
 def test_report_with_no_missing_data():
