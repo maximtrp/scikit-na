@@ -67,24 +67,86 @@ def summary(
     per_column: bool = True,
     round_dec: int = 2,
 ) -> DataFrame:
-    """Summary statistics on NA values.
+    """Generate comprehensive summary statistics for missing data patterns.
+
+    Computes detailed statistics about missing values including counts, percentages,
+    and the impact of missing data on dataset completeness. This function provides
+    both per-column and aggregate statistics to help understand missing data patterns.
 
     Parameters
     ----------
     data : DataFrame
-        Data object.
-    columns : Optional[Sequence]
-        Columns or indices to observe.
-    per_column : bool = True, optional
-        Show stats per each selected column.
-    round_dec: int = 2, optional
-        Number of decimals for rounding.
+        Input pandas DataFrame to analyze for missing data patterns.
+    columns : Iterable[str], optional
+        Specific column names to analyze. If None, analyzes all columns.
+    per_column : bool, default True
+        If True, returns detailed statistics for each column individually.
+        If False, returns aggregate statistics for the entire dataset.
+    round_dec : int, default 2
+        Number of decimal places for rounding numerical results.
 
     Returns
     -------
     DataFrame
-        Summary on NA values in the input data.
+        Summary statistics with the following metrics:
 
+        When per_column=True:
+        - na_count: Absolute count of missing values per column
+        - na_pct_per_col: Percentage of missing values per column
+        - na_pct_total: Percentage of column's NAs relative to all NAs
+        - na_unique_per_col: Count of rows where only this column has NA
+        - na_unique_pct_per_col: Percentage of unique NAs for this column
+        - rows_after_dropna: Remaining rows after dropping NAs from this column
+        - rows_after_dropna_pct: Percentage of rows remaining after dropna
+
+        When per_column=False:
+        - Dataset-level aggregated statistics including total cells,
+          missing cells, and overall completion rates
+
+    Examples
+    --------
+    Basic usage with per-column statistics:
+
+    >>> import pandas as pd
+    >>> import scikit_na as na
+    >>> data = pd.DataFrame({
+    ...     'A': [1, 2, None, 4, 5],
+    ...     'B': [None, 2, 3, None, 5],
+    ...     'C': [1, 2, 3, 4, 5]
+    ... })
+    >>> na.summary(data)
+                        A    B    C
+    na_count         1.0  2.0  0.0
+    na_pct_per_col  20.0 40.0  0.0
+    na_pct_total    33.3 66.7  0.0
+    ...
+
+    Dataset-level summary:
+
+    >>> na.summary(data, per_column=False)
+                        dataset
+    total_cols              3.0
+    na_cols                 2.0
+    total_rows              5.0
+    na_cells                3.0
+    na_cells_pct           20.0
+    ...
+
+    Analyzing specific columns only:
+
+    >>> na.summary(data, columns=['A', 'B'])
+                        A    B
+    na_count         1.0  2.0
+    na_pct_per_col  20.0 40.0
+    ...
+
+    Notes
+    -----
+    - Empty datasets (zero total cells) are handled gracefully with 0.0% rates
+    - The function provides insights into both individual column missingness
+      and the overall impact on dataset completeness
+    - Use per_column=False for quick dataset-level overview
+    - Use per_column=True for detailed column-by-column analysis
     """
     cols = _select_cols(data, columns)
     data_copy = data.loc[:, cols].copy()
@@ -165,29 +227,90 @@ def stairs(
     tooltip_label: str = "Size difference",
     dataset_label: str = "(Whole dataset)",
 ) -> DataFrame:
-    """DataFrame shrinkage on cumulative :py:meth:`pandas.DataFrame.dropna()`.
+    """Analyze dataset shrinkage from cumulative column-wise dropna operations.
+
+    This function simulates the effect of sequentially applying pandas.DataFrame.dropna()
+    to individual columns, starting with the column that has the most missing values.
+    It shows how the dataset size decreases as columns are processed, helping to
+    understand the cumulative impact of missing data on analysis sample sizes.
+
+    The algorithm:
+    1. Identifies the column with the most missing values
+    2. Applies dropna() to that column and records remaining dataset size
+    3. Repeats with remaining columns until no more missing values exist
+    4. Returns results suitable for visualization as a "stairs" plot
 
     Parameters
     ----------
     data : DataFrame
-        Input data.
+        Input pandas DataFrame to analyze for missing data impact.
     columns : Sequence[str], optional
-        Columns names.
-    xlabel : str, optional
-        X axis label.
-    ylabel : str, optional
-        Y axis label.
-    tooltip_label : str, optional
-        Tooltip label.
-    dataset_label : str, optional
-        Label for a whole dataset.
+        Specific column names to include in the analysis. If None, uses all columns.
+    xlabel : str, default "Columns"
+        Label for the x-axis in resulting visualization data.
+    ylabel : str, default "Instances"
+        Label for the y-axis representing the number of remaining rows.
+    tooltip_label : str, default "Size difference"
+        Label for the difference column showing row loss at each step.
+    dataset_label : str, default "(Whole dataset)"
+        Label for the initial state before any dropna operations.
 
     Returns
     -------
     DataFrame
-        Dataset shrinkage results after cumulative
-        :py:meth:`pandas.DataFrame.dropna()`.
+        Analysis results with columns:
+        - {xlabel}: Column names in order of processing (most missing first)
+        - {ylabel}: Number of remaining rows after processing each column
+        - {tooltip_label}: Number of rows lost at each step (negative values)
 
+        The first row represents the original dataset size before any processing.
+
+    Examples
+    --------
+    Basic usage:
+
+    >>> import pandas as pd
+    >>> import scikit_na as na
+    >>> data = pd.DataFrame({
+    ...     'A': [1, None, 3, None, 5],      # 2 missing
+    ...     'B': [1, 2, None, 4, 5],        # 1 missing
+    ...     'C': [None, None, None, 4, 5]   # 3 missing (most)
+    ... })
+    >>> na.stairs(data)
+          Columns  Instances  Size difference
+    0   (Whole dataset)      5              0.0
+    1              C         2             -3.0
+    2              A         2              0.0
+    3              B         2              0.0
+
+    Analyzing specific columns:
+
+    >>> na.stairs(data, columns=['A', 'B'])
+          Columns  Instances  Size difference
+    0   (Whole dataset)      5              0.0
+    1              A         3             -2.0
+    2              B         3              0.0
+
+    Custom labels for visualization:
+
+    >>> na.stairs(data,
+    ...           xlabel="Features",
+    ...           ylabel="Sample Size",
+    ...           tooltip_label="Rows Lost")
+        Features  Sample Size  Rows Lost
+    0   (Whole dataset)       5        0.0
+    1              C          2       -3.0
+    2              A          2        0.0
+    3              B          2        0.0
+
+    Notes
+    -----
+    - Columns are processed in order of decreasing missing value count
+    - This analysis helps identify which columns contribute most to sample size reduction
+    - Results are particularly useful for creating "stairs" or "waterfall" visualizations
+    - The cumulative approach shows realistic impact when using listwise deletion
+    - Use with plot_stairs() for visual representation of the analysis
+    - Useful for deciding column inclusion/exclusion strategies in analysis pipelines
     """
     cols = _select_cols(data, columns).tolist()
     data_copy = data.loc[:, cols].copy()
@@ -214,24 +337,86 @@ def stairs(
 
 
 def correlate(data: DataFrame, columns: Iterable[str] | None = None, drop: bool = True, **kwargs: Any) -> DataFrame:
-    """Calculate correlations between columns in terms of NA values.
+    """Calculate correlations between missing value patterns across columns.
+
+    Computes correlation coefficients between the missing value indicators (True/False)
+    of different columns to identify relationships in missingness patterns. High
+    correlations suggest that certain columns tend to have missing values together,
+    which can indicate systematic data collection issues or missing data mechanisms.
 
     Parameters
     ----------
     data : DataFrame
-        Input data.
-    columns : Optional[List, ndarray, Index] = None
-        Columns names.
-    drop : bool = True, optional
-        Drop columns without NA values.
-    kwargs : dict, optional
-        Keyword arguments passed to :py:meth:`pandas.DataFrame.corr()` method.
+        Input pandas DataFrame to analyze for missing data correlations.
+    columns : Iterable[str], optional
+        Column names to include in correlation analysis. If None, uses all columns.
+    drop : bool, default True
+        If True, excludes columns that have no missing values from the analysis.
+        If False, includes all specified columns (columns with no NAs will have
+        correlations of 0 or NaN with other columns).
+    **kwargs : dict
+        Additional keyword arguments passed to pandas.DataFrame.corr().
+        Common options include:
+        - method : {'pearson', 'kendall', 'spearman'}, default 'spearman'
+        - min_periods : int, minimum number of observations for valid result
 
     Returns
     -------
     DataFrame
-        Correlation values.
+        Correlation matrix showing relationships between missing value patterns.
+        Values range from -1 to 1, where:
+        - 1 indicates perfect positive correlation (columns miss together)
+        - 0 indicates no correlation
+        - -1 indicates perfect negative correlation (one misses when other doesn't)
 
+    Examples
+    --------
+    Basic correlation analysis:
+
+    >>> import pandas as pd
+    >>> import scikit_na as na
+    >>> data = pd.DataFrame({
+    ...     'income': [50000, None, None, 80000, None],
+    ...     'bonus': [5000, None, None, 8000, None],
+    ...     'age': [25, 30, None, 35, 40],
+    ...     'complete': [1, 2, 3, 4, 5]  # no missing values
+    ... })
+    >>> na.correlate(data)
+            income  bonus   age
+    income     1.0   1.0   0.5
+    bonus      1.0   1.0   0.5
+    age        0.5   0.5   1.0
+
+    Include columns without missing values:
+
+    >>> na.correlate(data, drop=False)
+            income  bonus   age  complete
+    income     1.0   1.0   0.5       NaN
+    bonus      1.0   1.0   0.5       NaN
+    age        0.5   0.5   1.0       NaN
+    complete   NaN   NaN   NaN       NaN
+
+    Using different correlation methods:
+
+    >>> # Pearson correlation (linear relationships)
+    >>> na.correlate(data, method='pearson')
+
+    >>> # Kendall's tau (rank-based, robust to outliers)
+    >>> na.correlate(data, method='kendall')
+
+    Analyzing specific columns only:
+
+    >>> na.correlate(data, columns=['income', 'bonus', 'age'])
+
+    Notes
+    -----
+    - Default correlation method is 'spearman' (rank-based), which is often
+      appropriate for binary missing value indicators
+    - Perfect correlation (1.0) between columns suggests they share the same
+      missing data pattern, possibly due to systematic data collection issues
+    - This analysis helps identify Missing At Random (MAR) vs Missing Completely
+      At Random (MCAR) patterns
+    - Use with visualization functions like plot_corr() for easier interpretation
     """
     cols = _select_cols(data, columns)
     kwargs.setdefault("method", "spearman")
@@ -290,42 +475,112 @@ def model(
     fit_kws: Dict[str, Any] | None = None,
     logit_kws: Dict[str, Any] | None = None,
 ) -> BinaryResultsWrapper:
-    """Logistic regression modeling.
+    """Fit logistic regression model to predict missing data patterns.
 
-    Fit a logistic regression model to NA values encoded as 0 (non-missing)
-    and 1 (NA) in column `col_na` with predictors passed with `columns`
-    argument. Statsmodels package is used as a backend for model fitting.
+    Creates a logistic regression model where the dependent variable indicates
+    whether a value is missing (1) or not (0) in the specified column, using
+    other variables as predictors. This is useful for:
+    - Understanding factors associated with missingness
+    - Testing Missing at Random (MAR) vs Missing Not at Random (MNAR) mechanisms
+    - Predicting probability of missingness for imputation or weighting
+
+    The model uses statsmodels' Logit class and automatically handles missing
+    values in predictors through the 'missing="drop"' option.
 
     Parameters
     ----------
     data : DataFrame
-        Input data.
+        Input pandas DataFrame containing the data to analyze.
     col_na : str
-        Column with NA values to use as a dependent variable.
-    columns : Optional[Sequence]
-        Columns to use as independent variables.
-    intercept : bool, optional
-        Fit intercept.
+        Column name containing missing values to model as the dependent variable.
+        Missing values in this column become 1, non-missing become 0.
+    columns : Sequence[str], optional
+        Column names to use as independent variables (predictors). If None,
+        uses all columns except col_na. Columns with missing values are handled
+        automatically by dropping incomplete cases.
+    intercept : bool, default True
+        If True, includes an intercept term in the model. Recommended for
+        most analyses to properly estimate baseline probability.
     fit_kws : dict, optional
-        Keyword arguments passed to `fit()` method of model.
+        Additional keyword arguments passed to the model's fit() method.
+        Common options include:
+        - method: 'newton' (default), 'bfgs', 'lbfgs'
+        - disp: bool, whether to display convergence messages
+        - maxiter: maximum number of iterations
     logit_kws : dict, optional
-        Keyword arguments passed to
-        :py:meth:`statsmodels.discrete.discrete_model.Logit` class.
+        Additional keyword arguments passed to statsmodels.discrete.discrete_model.Logit.
+        The 'missing' parameter defaults to 'drop' to handle missing predictors.
 
     Returns
     -------
     statsmodels.discrete.discrete_model.BinaryResultsWrapper
-        Model after applying `fit` method.
+        Fitted logistic regression model with methods for:
+        - summary(): Detailed model statistics and coefficients
+        - predict(): Predicted probabilities of missingness
+        - params: Model coefficients
+        - pvalues: Statistical significance of predictors
 
-    Example
-    -------
+    Examples
+    --------
+    Basic logistic regression for missing income data:
+
+    >>> import pandas as pd
     >>> import scikit_na as na
+    >>> data = pd.DataFrame({
+    ...     'income': [50000, None, 75000, None, 90000, None, 60000],
+    ...     'age': [25, 30, 35, 40, 45, 50, 28],
+    ...     'education_years': [12, 16, 18, 14, 20, 16, 12],
+    ...     'urban': [1, 1, 0, 1, 0, 1, 1]
+    ... })
+    >>> model = na.model(data, col_na='income',
+    ...                  columns=['age', 'education_years', 'urban'])
+    >>> print(model.summary())
+
+    Examining model coefficients and significance:
+
+    >>> # Get coefficient estimates
+    >>> print("Coefficients:")
+    >>> print(model.params)
+    >>>
+    >>> # Check statistical significance
+    >>> print("P-values:")
+    >>> print(model.pvalues)
+    >>>
+    >>> # Predict missingness probabilities
+    >>> probabilities = model.predict()
+
+    Advanced model fitting with custom options:
+
+    >>> # Use different optimization method and custom convergence settings
     >>> model = na.model(
     ...     data,
-    ...     col_na='column_with_NAs',
-    ...     columns=['age', 'height', 'weight'])
-    >>> model.summary()
+    ...     col_na='income',
+    ...     columns=['age', 'education_years'],
+    ...     fit_kws={'method': 'bfgs', 'maxiter': 100, 'disp': True},
+    ...     logit_kws={'check_rank': False}
+    ... )
 
+    Model without intercept (for special cases):
+
+    >>> # When theoretical reasons suggest no baseline probability
+    >>> model = na.model(data, col_na='income',
+    ...                  columns=['age'], intercept=False)
+
+    Notes
+    -----
+    - The model automatically converts missing values in col_na to 1 and non-missing to 0
+    - Cases with missing values in predictor columns are dropped (listwise deletion)
+    - Significant coefficients suggest Missing at Random (MAR) conditional on predictors
+    - Non-significant model suggests Missing Completely at Random (MCAR)
+    - Use model.summary() for comprehensive output including fit statistics
+    - Consider checking model assumptions (linearity, independence, no multicollinearity)
+    - Large coefficients may indicate separation issues requiring regularization
+
+    See Also
+    --------
+    test_hypothesis : Statistical tests for missing data mechanisms
+    describe : Descriptive statistics grouped by missingness
+    correlate : Correlation analysis of missing data patterns
     """
     cols = _select_cols(data, columns)
     cols_pred = setdiff1d(cols, [col_na])

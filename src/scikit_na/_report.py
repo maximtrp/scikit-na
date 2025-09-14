@@ -1,4 +1,16 @@
-"""Interactive report."""
+"""Interactive reporting widgets for comprehensive missing data analysis.
+
+This module provides an interactive Jupyter widget-based interface for exploring
+missing data patterns. It combines multiple analysis types into a unified,
+user-friendly interface with tabs for different aspects of missing data analysis.
+
+The main report function creates a comprehensive dashboard with:
+- Summary statistics tabs with column selection
+- Interactive visualizations (heatmaps, stairs plots)
+- Statistical analysis grouped by missingness
+- Correlation analysis between missing value patterns
+- Distribution comparisons for different missing data groups
+"""
 
 from __future__ import annotations
 
@@ -311,30 +323,120 @@ def report(
     heat_kws: Dict[str, Any] | None = None,
     dist_kws: Dict[str, Any] | None = None,
 ) -> widgets.Tab:
-    """Interactive report.
+    """Create comprehensive interactive missing data analysis dashboard.
+
+    Generates a multi-tab Jupyter widget interface for exploring missing data
+    patterns through various analytical lenses. This function provides a complete
+    workflow for missing data analysis, from basic summary statistics to advanced
+    correlation analysis and distribution comparisons.
+
+    The dashboard includes five main analysis tabs:
+    1. **Summary**: Basic statistics with column selection capabilities
+    2. **Visualizations**: Interactive heatmaps and stairs plots
+    3. **Statistics**: Descriptive statistics grouped by missingness patterns
+    4. **Correlations**: Missing value correlation heatmaps with selection
+    5. **Distributions**: Compare value distributions between missing/non-missing groups
 
     Parameters
     ----------
     data : DataFrame
-        Input data.
-    columns : Optional[Sequence[str]], optional
-        Columns names.
-    layout : widgets.Layout, optional
-        Layout object for use in GridBox.
-    round_dec : int, optional
-        Number of decimals for rounding.
+        Input pandas DataFrame to analyze for missing data patterns. Should contain
+        a mix of complete and incomplete columns for meaningful analysis.
+    columns : Sequence[str], optional
+        Specific column names to include in the analysis. If None, analyzes all
+        columns in the DataFrame. Useful for focusing on specific variables.
+    layout : ipywidgets.Layout, optional
+        Custom layout object for controlling widget arrangement in GridBox layouts.
+        If None, uses a default 2-column grid layout for selection widgets.
+    round_dec : int, default 2
+        Number of decimal places for rounding numerical results displayed in
+        tables and statistics throughout the dashboard.
     corr_kws : dict, optional
-        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_corr()`.
+        Keyword arguments passed to scikit_na.altair.plot_corr() for customizing
+        correlation heatmaps. Common options include color schemes and sizing.
     heat_kws : dict, optional
-        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_heatmap()`.
+        Keyword arguments passed to scikit_na.altair.plot_heatmap() for customizing
+        missing data heatmaps. Useful for adjusting colors, sorting, and display.
     dist_kws : dict, optional
-        Keyword arguments passed to :py:meth:`scikit_na.altair.plot_hist()`.
+        Keyword arguments passed to scikit_na.altair.plot_hist() and related
+        distribution plotting functions for customizing appearance and behavior.
 
     Returns
     -------
-    widgets.Tab
-        Interactive report with multiple tabs.
+    ipywidgets.Tab
+        Interactive Jupyter widget with multiple tabs providing:
+        - Dynamic column selection across all analysis types
+        - Real-time updates when selections change
+        - Integrated visualizations and statistical outputs
+        - Export-ready analysis results
 
+    Examples
+    --------
+    Basic interactive report:
+
+    >>> import pandas as pd
+    >>> import scikit_na as na
+    >>> data = pd.DataFrame({
+    ...     'income': [50000, None, 75000, None, 90000],
+    ...     'age': [25, 30, None, 40, 45],
+    ...     'education': ['HS', 'College', 'PhD', None, 'College'],
+    ...     'urban': [1, 1, 0, 1, 0]
+    ... })
+    >>> report_widget = na.report(data)
+    >>> display(report_widget)
+
+    Focus on specific columns:
+
+    >>> report_widget = na.report(data, columns=['income', 'age', 'education'])
+
+    Customized visualization settings:
+
+    >>> custom_corr = {'color_kws': {'scale': {'scheme': 'blues'}}}
+    >>> custom_heat = {'droppable': False, 'font_size': 12}
+    >>> report_widget = na.report(data,
+    ...                          corr_kws=custom_corr,
+    ...                          heat_kws=custom_heat,
+    ...                          round_dec=3)
+
+    Advanced layout customization:
+
+    >>> from ipywidgets import Layout
+    >>> custom_layout = Layout(grid_template_columns="1fr 2fr",
+    ...                       justify_items="stretch")
+    >>> report_widget = na.report(data, layout=custom_layout)
+
+    Notes
+    -----
+    - Requires Jupyter notebook environment with ipywidgets support
+    - Best performance with datasets containing 10-1000 columns and reasonable row counts
+    - Interactive features include column selection, real-time plot updates, and tooltips
+    - All visualizations are built with Altair for high-quality, interactive graphics
+    - The dashboard automatically handles datasets with no missing values gracefully
+    - Export capabilities available through individual tab components
+    - Memory usage scales with dataset size and number of selected columns
+
+    Tab Details
+    -----------
+    **Summary Tab**: Provides column-selectable summary statistics with both
+    per-column and dataset-level views of missing data patterns.
+
+    **Visualizations Tab**: Interactive heatmaps showing missing data patterns
+    and stairs plots demonstrating cumulative impact of listwise deletion.
+
+    **Statistics Tab**: Descriptive statistics for numeric and categorical
+    variables, grouped by missingness in a selected reference column.
+
+    **Correlations Tab**: Correlation heatmap between missing value indicators,
+    with column selection for focused analysis of specific relationships.
+
+    **Distributions Tab**: Side-by-side distribution comparisons (histogram/KDE)
+    between groups defined by missingness in a reference column.
+
+    See Also
+    --------
+    summary : Generate numerical summaries without interactive interface
+    altair.plot_heatmap : Create standalone missing data heatmaps
+    export_report : Save comprehensive analysis results to files
     """
     # Initialize default parameters
     corr_kws = corr_kws or {}

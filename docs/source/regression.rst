@@ -1,35 +1,64 @@
-Regression modeling
-===================
+Predictive Modeling of Missingness
+===================================
 
-The presence of missing data can be used in regression modeling as a dependent
-variable encoded as ``0`` and ``1``.
+Understanding what predicts missingness patterns can reveal important insights about
+your data collection process and help determine appropriate missing data mechanisms.
+**scikit-na** provides logistic regression modeling to predict the probability of
+missingness based on other variables.
 
-For demonstration purposes, we will use `Titanic dataset
-<https://www.kaggle.com/c/titanic/data>`_. Let's create a regression model with *Age* as a
-dependent variable and *Fare*, *Parch*, *Pclass*, *SibSp*, *Survived*
-as independent variables. Internally, ``pandas.Series.isna()`` method is called
-on *Age* column, and the resulting boolean values are converted to integers
-(``True`` and ``False`` become ``1`` and ``0``). Data preprocessing is totally up to
-you!
+Why Model Missingness?
+~~~~~~~~~~~~~~~~~~~~~~
 
-Currently, ``scikit_na.model()`` function runs a logistic model using `statsmodels
-<https://www.statsmodels.org>`_ package as a backend.
+Modeling missingness helps you:
 
-.. code:: python
+* **Test missing data mechanisms**: Distinguish between MCAR, MAR, and MNAR
+* **Identify predictors**: Understand which variables are associated with missingness
+* **Inform imputation**: Use predictive relationships for better imputation strategies
+* **Assess bias**: Evaluate potential selection bias in your analysis
 
-    import pandas as pd
-    import scikit_na as na
+The Model
+~~~~~~~~~
 
-    # Loading data
-    data = pd.read_csv("titanic_dataset.csv")
+The ``scikit_na.model()`` function fits a logistic regression where:
 
-    # Selecting columns with numeric data
-    # Dropping "PassengerId" column
-    subset = data.loc[:, data.dtypes != object].drop(columns=['PassengerId'])
+* **Dependent variable**: Missing (1) vs. Non-missing (0) in the target column
+* **Independent variables**: Other columns that might predict missingness
+* **Backend**: Uses `statsmodels <https://www.statsmodels.org>`_ for robust statistical inference
 
-    # Fitting a model
-    model = na.model(subset, col_na='Age')
-    model.summary()
+Basic Example
+~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   import pandas as pd
+   import scikit_na as na
+
+   # Load the Titanic dataset
+   data = pd.read_csv("titanic_dataset.csv")
+
+   # Select numeric predictors
+   predictors = ['Fare', 'Parch', 'Pclass', 'SibSp', 'Survived']
+
+   # Fit logistic regression model
+   model = na.model(data, col_na='Age', columns=predictors)
+
+   # Display comprehensive results
+   print(model.summary())
+
+Interpreting Results
+~~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   # Extract key information
+   print("Model Coefficients:")
+   print(model.params)
+
+   print("\\nStatistical Significance:")
+   print(model.pvalues)
+
+   print("\\nConfidence Intervals:")
+   print(model.conf_int())
 
 .. code::
 

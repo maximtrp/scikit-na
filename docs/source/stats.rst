@@ -1,33 +1,45 @@
-Statistics
-==========
+Statistical Analysis
+===================
 
-In missing data analysis, an important step is calculating simple descriptive
-and aggregate statistics for both missing and non-missing data in each column, as
-well as for the entire dataset. *Scikit-na* provides useful functions to facilitate these
-operations.
+Understanding missing data patterns through statistical analysis is crucial for making
+informed decisions about data handling strategies. **scikit-na** provides comprehensive
+statistical functions to analyze missing data at both column and dataset levels.
 
-Summary
-~~~~~~~
+This guide demonstrates key statistical functions using the Titanic dataset, which
+contains missing values in three columns: *Age*, *Cabin*, and *Embarked*.
 
-We will use Titanic dataset, which contains missing values (NA) in three
-columns: *Age*, *Cabin*, and *Embarked*.
+Getting Started
+~~~~~~~~~~~~~~~
 
-Per column
-----------
+.. code-block:: python
 
-To generate a simple summary for each column, we will load the dataset using ``pandas``
-and pass it to the ``summary()`` function. This function supports subsetting the dataset
-using the ``columns`` argument, which we will use to reduce the width of the results table.
+   import pandas as pd
+   import scikit_na as na
 
-.. code:: python
+   # Load the Titanic dataset
+   data = pd.read_csv('titanic_dataset.csv')
 
-    import scikit_na as na
-    import pandas as pd
+   # Quick overview of missing data
+   print(f"Dataset shape: {data.shape}")
+   print(f"Missing values per column:")
+   print(data.isnull().sum())
 
-    data = pd.read_csv('titanic_dataset.csv')
+Summary Statistics
+~~~~~~~~~~~~~~~~~~
 
-    # Excluding three columns without NA to fit the table here
-    na.summary(data, columns=data.columns.difference(['SibSp', 'Parch', 'Ticket']))
+Column-Level Analysis
+---------------------
+
+Generate detailed statistics for each column to understand individual patterns:
+
+.. code-block:: python
+
+   # Comprehensive per-column summary
+   summary_stats = na.summary(data, per_column=True)
+   print(summary_stats)
+
+   # Focus on columns with missing data only
+   na.summary(data, columns=['Age', 'Cabin', 'Embarked'])
 
 ===========================  ======  =======  ==========  ======  ======  =============  ========  =====  ==========
 ..                              Age    Cabin    Embarked    Fare    Name    PassengerId    Pclass    Sex    Survived
@@ -41,24 +53,34 @@ rows_after_dropna            714      204         889        891     891        
 rows_dropna_pct               80.13    22.9        99.78     100     100            100       100    100         100
 ===========================  ======  =======  ==========  ======  ======  =============  ========  =====  ==========
 
-Those measures were meant to be self-explanatory:
+Understanding the Summary Metrics
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-- *na_count* is the number of NA values in each column.
+The summary provides several key metrics for missing data analysis:
 
-- *na_unique_per_col* is the number of missing values in each column
-  that are unique to it, meaning they do not overlap with NA values in other columns
-  (or the number of values that would remain in the dataset if we drop rows with
-  NA values from the other columns).
+**Missing Data Counts**
+  - *na_count*: Absolute number of missing values in each column
+  - *na_pct_per_col*: Percentage of missing values within each column
+  - *na_pct_total*: This column's missing values as percentage of all missing values
 
-- *rows_after_dropna* is the number of rows that would remain in the dataset
-  if we applied ``pandas.Series.dropna()`` method to each column.
+**Missing Data Patterns**
+  - *na_unique_per_col*: Missing values unique to this column (don't overlap with other columns)
+  - *na_unique_pct_per_col*: Percentage of this column's missing values that are unique
 
-Whole dataset
--------------
+**Impact Analysis**
+  - *rows_after_dropna*: Rows remaining after dropping missing values from this column
+  - *rows_after_dropna_pct*: Percentage of original rows that would remain
 
-By default, the ``summary()`` function returns the results for each column. To get
-the summary of missing data for the entire dataset, we should set the ``per_column``
-argument to ``False``.
+Dataset-Level Analysis
+----------------------
+
+For an overall dataset perspective, use aggregate statistics:
+
+.. code-block:: python
+
+   # Dataset-level summary
+   dataset_summary = na.summary(data, per_column=False)
+   print(dataset_summary)
 
 .. code:: python
 

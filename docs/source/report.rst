@@ -1,21 +1,40 @@
-Interactive report
-==================
+Interactive Dashboard
+=====================
 
-Report interface is based on `ipywidgets
-<https://github.com/jupyter-widgets/ipywidgets>`_. It can help you quickly and
-interactively explore NA values in your dataset, view patterns, calculate
-statistics, show relevant figures and tables.
+The **scikit-na** interactive dashboard provides a comprehensive, user-friendly interface
+for exploring missing data patterns. Built with `ipywidgets <https://github.com/jupyter-widgets/ipywidgets>`_,
+it offers real-time analysis through multiple coordinated views.
 
-To begin, just load the data and pass your DataFrame to ``scikit_na.report()``
-function:
+Quick Start
+~~~~~~~~~~~
 
-.. code:: python
+Create an interactive dashboard in just a few lines:
 
-    import pandas as pd
-    import scikit_na as na
+.. code-block:: python
 
-    data = pd.read_csv('titanic_dataset.csv')
-    na.report(data)
+   import pandas as pd
+   import scikit_na as na
+
+   # Load your data
+   data = pd.read_csv('titanic_dataset.csv')
+
+   # Launch interactive dashboard
+   dashboard = na.report(data)
+   display(dashboard)
+
+Features Overview
+~~~~~~~~~~~~~~~~~
+
+The dashboard includes five integrated analysis tabs:
+
+1. **Summary**: Column-selectable statistics with real-time updates
+2. **Visualizations**: Interactive heatmaps and impact analysis
+3. **Statistics**: Comparative analysis grouped by missingness
+4. **Correlations**: Missing value pattern relationships
+5. **Distributions**: Value distribution comparisons
+
+Dashboard Tabs
+~~~~~~~~~~~~~~
 
 Summary tab
 ~~~~~~~~~~~

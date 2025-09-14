@@ -1,4 +1,9 @@
-"""Export functionality for reports and visualizations."""
+"""Export functionality for missing data analysis reports and visualizations.
+
+This module provides comprehensive export capabilities for missing data analysis results,
+supporting multiple file formats and automated report generation. It enables researchers
+to save their analysis outputs for documentation, sharing, and further processing.
+"""
 
 from __future__ import annotations
 
@@ -27,28 +32,82 @@ def export_summary(
     per_column: bool = True,
     round_dec: int = 2,
 ) -> None:
-    """Export summary statistics to various formats.
+    """Export missing data summary statistics to various file formats.
+
+    Generates and saves comprehensive summary statistics about missing data patterns
+    in multiple formats for documentation, reporting, or further analysis. The function
+    uses the summary() function internally and saves results in the specified format.
 
     Parameters
     ----------
     data : DataFrame
-        Input data.
-    output_path : Union[str, Path]
-        Path to save the exported file.
-    format : ExportFormat, optional
-        Output format: 'csv', 'json', 'html', 'xlsx'.
-    columns : Optional[list], optional
-        Columns to include in summary.
-    per_column : bool, optional
-        Show stats per each selected column.
-    round_dec : int, optional
-        Number of decimals for rounding.
+        Input pandas DataFrame to analyze and export summary statistics for.
+    output_path : str or Path
+        File path where the summary statistics will be saved. The file extension
+        is automatically added if not provided, based on the format parameter.
+    format : {'csv', 'json', 'html', 'xlsx'}, default 'csv'
+        Output file format:
+        - 'csv': Comma-separated values, easily imported into spreadsheet applications
+        - 'json': JavaScript Object Notation, suitable for web applications
+        - 'html': HTML table format, ready for web display or documentation
+        - 'xlsx': Excel format, preserves formatting and supports multiple sheets
+    columns : list, optional
+        Specific column names to include in the summary analysis. If None,
+        includes all columns from the DataFrame.
+    per_column : bool, default True
+        Controls summary granularity:
+        - True: Detailed statistics for each individual column
+        - False: Aggregate statistics for the entire dataset
+    round_dec : int, default 2
+        Number of decimal places for rounding numerical results in the output.
 
     Raises
     ------
     ValueError
-        If format is not supported.
+        If the specified format is not supported. Supported formats are:
+        'csv', 'json', 'html', 'xlsx'.
+    IOError
+        If the output path is not writable or the directory doesn't exist.
 
+    Examples
+    --------
+    Export basic CSV summary:
+
+    >>> import pandas as pd
+    >>> import scikit_na as na
+    >>> data = pd.DataFrame({
+    ...     'A': [1, None, 3, 4, 5],
+    ...     'B': [1, 2, None, None, 5],
+    ...     'C': [1, 2, 3, 4, 5]
+    ... })
+    >>> na.export_summary(data, 'missing_data_summary.csv')
+
+    Export detailed HTML report:
+
+    >>> na.export_summary(data, 'summary.html', format='html', per_column=True)
+
+    Export aggregate Excel summary:
+
+    >>> na.export_summary(data,
+    ...                   'dataset_overview.xlsx',
+    ...                   format='xlsx',
+    ...                   per_column=False,
+    ...                   round_dec=3)
+
+    Export JSON for specific columns:
+
+    >>> na.export_summary(data,
+    ...                   'selected_columns.json',
+    ...                   format='json',
+    ...                   columns=['A', 'B'])
+
+    Notes
+    -----
+    - CSV format is most compatible across platforms and applications
+    - HTML format includes table styling and is ready for web display
+    - JSON format preserves data types and is suitable for programmatic access
+    - XLSX format supports rich formatting but requires pandas Excel dependencies
+    - The function automatically creates parent directories if they don't exist
     """
     output_path = Path(output_path)
 

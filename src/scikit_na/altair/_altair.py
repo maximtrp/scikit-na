@@ -1,4 +1,16 @@
-"""Altair-backed plotting functions."""
+"""Interactive visualization functions using Altair for missing data analysis.
+
+This module provides comprehensive interactive visualizations for exploring missing data
+patterns using the Altair/Vega-Lite grammar of graphics. All functions return Chart
+objects that can be displayed in Jupyter notebooks or saved to various formats.
+
+Key visualization types:
+- Heatmaps for missing data patterns
+- Correlation plots for missingness relationships
+- Distribution plots (histograms and KDE) grouped by missingness
+- Stairs plots showing cumulative impact of missing data
+- Interactive widgets for dynamic exploration
+"""
 
 from __future__ import annotations
 
@@ -523,49 +535,120 @@ def plot_heatmap(
     y_kws: dict | None = None,
     color_kws: dict | None = None,
 ) -> Chart:
-    """Heatmap plot for NA/non-NA values.
+    """Create interactive heatmap visualization of missing data patterns.
 
-    By default, it also indicates values that are to be dropped by
-    :py:meth:`pandas.DataFrame.dropna()` method.
+    Generates a color-coded heatmap where each cell represents a data point,
+    showing the pattern of missing values across rows and columns. This
+    visualization is essential for understanding:
+    - Overall distribution of missing values
+    - Systematic patterns in data collection
+    - Which rows would be affected by listwise deletion
+    - Relationships between missing values in different columns
 
     Parameters
     ----------
     data : DataFrame
-        Input data.
-    columns : Optional[Sequence[str]], optional
-        Columns that are to be displayed on a plot.
+        Input pandas DataFrame to visualize missing data patterns.
+    columns : Sequence[str], optional
+        Specific column names to include in the visualization. If None,
+        includes all columns in the DataFrame.
     names : list, optional
-        Values labels passed as a list.
-        The first element corresponds to non-missing values,
-        the second one to NA values, and the last one to droppable values, i.e.
-        values to be dropped by :py:meth:`pandas.DataFrame.dropna()`.
-    sort : bool, optional
-        Sort values as NA/non-NA.
-    droppable : bool, optional
-        Show values to be dropped by :py:meth:`pandas.DataFrame.dropna()`
-        method.
-    xlabel : str, optional
-        X axis label.
-    ylabel : str, optional
-        Y axis label.
-    zlabel : str, optional
-        Groups label (shown as a legend title).
+        Custom labels for the legend categories, provided as a list with:
+        - names[0]: Label for non-missing values (default: "Filled")
+        - names[1]: Label for missing values (default: "NA")
+        - names[2]: Label for droppable values (default: "Droppable")
+        Only first two elements are used if droppable=False.
+    sort : bool, default True
+        If True, sorts columns by number of missing values (most missing first)
+        and rows by missing value patterns for better visual clustering.
+    droppable : bool, default True
+        If True, highlights non-missing values in rows that contain at least
+        one missing value (i.e., values that would be lost with listwise deletion).
+        This helps understand the impact of complete case analysis.
+    font_size : int, default 14
+        Font size for axis labels and legend text.
+    xlabel : str, default "Columns"
+        Label for the x-axis (column names).
+    ylabel : str, default "Rows"
+        Label for the y-axis (row indices).
+    zlabel : str, default "Values"
+        Title for the color legend showing value categories.
     chart_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Chart()` class.
+        Additional keyword arguments passed to altair.Chart() constructor.
+        Common options: {'width': int, 'height': int, 'title': str}
     rect_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Chart.mark_rect()` method.
+        Keyword arguments for altair.Chart.mark_rect() to customize rectangles.
+        Common options: {'stroke': str, 'strokeWidth': float}
     x_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.X()` class.
+        Keyword arguments for altair.X() encoding of the x-axis.
     y_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Y()` class.
+        Keyword arguments for altair.Y() encoding of the y-axis.
     color_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Color()` class.
+        Keyword arguments for altair.Color() encoding, including custom color scales.
 
     Returns
     -------
     altair.Chart
-        Altair Chart object.
+        Interactive Altair Chart object that can be:
+        - Displayed directly in Jupyter notebooks
+        - Saved to various formats (PNG, SVG, HTML, JSON)
+        - Further customized with additional Altair methods
 
+    Examples
+    --------
+    Basic missing data heatmap:
+
+    >>> import pandas as pd
+    >>> import scikit_na as na
+    >>> data = pd.DataFrame({
+    ...     'A': [1, None, 3, None, 5],
+    ...     'B': [1, 2, None, 4, None],
+    ...     'C': [None, None, 3, 4, 5]
+    ... })
+    >>> chart = na.altair.plot_heatmap(data)
+    >>> chart.show()
+
+    Focus on specific columns without sorting:
+
+    >>> chart = na.altair.plot_heatmap(data,
+    ...                                columns=['A', 'B'],
+    ...                                sort=False)
+
+    Simplified view without droppable values:
+
+    >>> chart = na.altair.plot_heatmap(data,
+    ...                                droppable=False,
+    ...                                names=['Available', 'Missing'])
+
+    Customized appearance:
+
+    >>> chart = na.altair.plot_heatmap(
+    ...     data,
+    ...     chart_kws={'width': 400, 'height': 300, 'title': 'Missing Data Pattern'},
+    ...     color_kws={'scale': {'range': ['lightblue', 'red', 'orange']}},
+    ...     font_size=12
+    ... )
+
+    Save to file:
+
+    >>> chart = na.altair.plot_heatmap(data)
+    >>> chart.save('missing_data_heatmap.png')
+
+    Notes
+    -----
+    - Green typically represents filled/non-missing values
+    - Red represents missing (NA) values
+    - Orange represents "droppable" values (non-missing values in incomplete rows)
+    - Sorting helps identify systematic missing data patterns
+    - The droppable category shows the collateral damage from listwise deletion
+    - Interactive features allow zooming and tooltips for detailed inspection
+    - Large datasets may require adjusting chart dimensions via chart_kws
+
+    See Also
+    --------
+    plot_stairs : Visualize cumulative impact of missing data
+    plot_corr : Correlation heatmap for missing value patterns
+    summary : Numerical summary of missing data patterns
     """
     if not chart_kws:
         chart_kws = {"height": 300}
