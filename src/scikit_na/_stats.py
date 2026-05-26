@@ -9,7 +9,7 @@ from functools import partial
 from typing import Any, Callable, Dict, List
 
 from numpy import array, nan, ndarray, r_, setdiff1d
-from pandas import NA, DataFrame, Index, Series, concat
+from pandas import DataFrame, Index, Series, concat
 from pandas.api.types import is_numeric_dtype as _is_numeric_dtype
 from statsmodels.discrete.discrete_model import BinaryResultsWrapper, Logit
 

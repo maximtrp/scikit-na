@@ -267,9 +267,12 @@ def _create_distributions_tab(data: DataFrame, cols: list, dist_kws: dict) -> wi
 
     # Distribution plot
     dist_image = widgets.Output()
-    dist_image.append_display_data(
-        plot_hist(data, col=random_col, col_na=col_with_most_nas, **dist_kws).properties(width=400),
-    )
+    if random_col == col_with_most_nas:
+        dist_image.append_display_data(widgets.HTML("Select different columns"))
+    else:
+        dist_image.append_display_data(
+            plot_hist(data, col=random_col, col_na=col_with_most_nas, **dist_kws).properties(width=400),
+        )
     dist_image_header = widgets.HTML("<b>Distributions of values</b>")
     dist_image_box = widgets.VBox([dist_image_header, dist_image], layout={"align_items": "center"})
 
