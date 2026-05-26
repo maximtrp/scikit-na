@@ -262,7 +262,8 @@ def _create_distributions_tab(data: DataFrame, cols: list, dist_kws: dict) -> wi
     """Create the distributions tab with histograms and KDE plots."""
     # Choose column with most NAs and a random column
     col_with_most_nas = data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
-    random_col = random.choice(setdiff1d(cols, [col_with_most_nas]))
+    remaining_cols = setdiff1d(cols, [col_with_most_nas])
+    random_col = random.choice(remaining_cols) if len(remaining_cols) > 0 else col_with_most_nas
 
     # Distribution plot
     dist_image = widgets.Output()

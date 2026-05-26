@@ -46,7 +46,7 @@ from pandas import DataFrame
 
 from .._stats import _select_cols, correlate, stairs
 
-# Allow plotting mote than 5000 rows
+# Allow plotting more than 5000 rows
 data_transformers.disable_max_rows()
 
 
@@ -347,7 +347,7 @@ def plot_scatter(
     if not circle_kws:
         circle_kws = {"opacity": 0.5}
     if not color_kws:
-        color_kws = {"title": col_na or na_label}
+        color_kws = {"title": na_label or col_na}
     if not x_kws:
         x_kws = {"title": xlabel or x_col}
     if not y_kws:

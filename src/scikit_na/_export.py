@@ -110,6 +110,7 @@ def export_summary(
     - The function automatically creates parent directories if they don't exist
     """
     output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Generate summary
     summary_df = summary(data, columns=columns, per_column=per_column, round_dec=round_dec)
@@ -219,12 +220,14 @@ def export_report(
             print(f"Warning: Could not generate descriptive statistics: {e}")
 
     # Generate a summary report
+    total_cells = data.shape[0] * data.shape[1]
+    na_total = int(data.isna().sum().sum())
     report_summary = {
         "analysis_date": pd.Timestamp.now().isoformat(),
         "dataset_shape": data.shape,
         "columns_analyzed": columns if columns else data.columns.tolist(),
-        "total_missing_values": int(data.isna().sum().sum()),
-        "missing_percentage": float(data.isna().sum().sum() / (data.shape[0] * data.shape[1]) * 100),
+        "total_missing_values": na_total,
+        "missing_percentage": float(na_total / total_cells * 100) if total_cells > 0 else 0.0,
         "exported_files": {k: str(v) for k, v in exported_files.items()},
     }
 
