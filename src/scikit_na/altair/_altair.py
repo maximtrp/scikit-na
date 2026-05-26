@@ -770,7 +770,9 @@ def plot_corr(
     data_corr = correlate(data, columns=cols, **corr_kws)
 
     if mask_diag:
-        fill_diagonal(data_corr.values, nan)
+        corr_values = data_corr.to_numpy(copy=True)
+        fill_diagonal(corr_values, nan)
+        data_corr = DataFrame(corr_values, index=data_corr.index, columns=data_corr.columns)
     data_corr_melt = data_corr.reset_index(drop=False).melt(id_vars=["index"])
 
     base = Chart(data_corr_melt, **chart_kws).encode(x=X(**x_kws), y=Y(**y_kws))

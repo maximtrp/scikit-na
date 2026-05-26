@@ -60,7 +60,9 @@ def plot_corr(
 
     data_corr = correlate(data, columns=cols, **corr_kws)
     if mask_diag:
-        fill_diagonal(data_corr.values, nan)
+        corr_values = data_corr.to_numpy(copy=True)
+        fill_diagonal(corr_values, nan)
+        data_corr = DataFrame(corr_values, index=data_corr.index, columns=data_corr.columns)
 
     return heatmap(data_corr, **heat_kws)
 
@@ -227,8 +229,7 @@ def plot_heatmap(
         non_na_mask = ~data_na.values
         na_rows_mask = data_na.any(axis=1).values[:, None]
         droppable_mask = non_na_mask & na_rows_mask
-        data_na = data_na.astype(float)
-        data_na.values[droppable_mask] = 0.5
+        data_na = data_na.astype(float).mask(droppable_mask, other=0.5)
         labels = names
     else:
         labels = [names[0], names[-1]]

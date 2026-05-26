@@ -9,7 +9,7 @@ from functools import partial
 from typing import Any, Callable, Dict, List
 
 from numpy import array, nan, ndarray, r_, setdiff1d
-from pandas import DataFrame, Index, Series, concat
+from pandas import DataFrame, Index, Series, StringDtype, concat
 from pandas.api.types import is_numeric_dtype as _is_numeric_dtype
 from statsmodels.discrete.discrete_model import BinaryResultsWrapper, Logit
 
@@ -28,7 +28,9 @@ def _select_cols(
 
 def _get_nominal_cols(data: DataFrame, columns: Sequence[str] | None = None) -> ndarray:
     cols = _select_cols(data, columns)
-    return array([col for col in cols if data[col].dtype == object])
+    return array(
+        [col for col in cols if data[col].dtype == object or isinstance(data[col].dtype, StringDtype)]
+    )
 
 
 def _get_numeric_cols(data: DataFrame, columns: Sequence[str] | None = None) -> ndarray:
