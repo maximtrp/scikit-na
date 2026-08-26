@@ -160,6 +160,8 @@ def export_report(
     """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
+    analyzed_columns = data.columns.tolist() if columns is None else list(columns)
+    analyzed_data = data.loc[:, analyzed_columns]
 
     exported_files = {}
 
@@ -220,12 +222,12 @@ def export_report(
             print(f"Warning: Could not generate descriptive statistics: {e}")
 
     # Generate a summary report
-    total_cells = data.shape[0] * data.shape[1]
-    na_total = int(data.isna().sum().sum())
+    total_cells = analyzed_data.shape[0] * analyzed_data.shape[1]
+    na_total = int(analyzed_data.isna().sum().sum())
     report_summary = {
         "analysis_date": pd.Timestamp.now().isoformat(),
-        "dataset_shape": data.shape,
-        "columns_analyzed": columns if columns else data.columns.tolist(),
+        "dataset_shape": analyzed_data.shape,
+        "columns_analyzed": analyzed_columns,
         "total_missing_values": na_total,
         "missing_percentage": float(na_total / total_cells * 100) if total_cells > 0 else 0.0,
         "exported_files": {k: str(v) for k, v in exported_files.items()},
@@ -237,4 +239,3 @@ def export_report(
     exported_files["report_summary"] = report_path
 
     return exported_files
-

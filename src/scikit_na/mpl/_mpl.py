@@ -386,7 +386,7 @@ def plot_hist(
     if not hist_kws:
         hist_kws = {"stat": stat, "common_norm": common_norm}
 
-    data_copy = data.copy()
+    data_copy = data.loc[:, [col, col_na]].copy()
     col_na_name = col_na_fmt.format(col_na)
     data_copy[col_na_name] = data_copy.loc[:, col_na].isna()
 
@@ -428,7 +428,7 @@ def plot_kde(
     if not kde_kws:
         kde_kws = {"common_norm": common_norm}
 
-    data_copy = data.copy()
+    data_copy = data.loc[:, [col, col_na]].copy()
     col_na_name = col_na_fmt.format(col_na)
     data_copy[col_na_name] = data_copy.loc[:, col_na].isna()
 

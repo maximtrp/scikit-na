@@ -5,6 +5,7 @@ import pytest
 from numpy import ndarray
 from pandas import DataFrame, Series
 
+import src.scikit_na._stats as stats_module
 from src.scikit_na._stats import (
     _get_abs_na_count,
     _get_na_perc,
@@ -333,6 +334,16 @@ def test_stairs(data_with_na):
     assert "B" in result_cols["Columns"].values
 
 
+def test_stairs_includes_zero_impact_columns():
+    data = DataFrame({"A": [1, np.nan, 3], "B": [1, np.nan, 3], "C": [1, 2, 3]})
+
+    result = stairs(data)
+
+    assert result["Columns"].tolist() == ["(Whole dataset)", "A", "B", "C"]
+    assert result["Instances"].tolist() == [3, 2, 2, 2]
+    assert result["Size difference"].tolist() == [0.0, -1.0, 0.0, 0.0]
+
+
 def test_correlate(data_with_na):
     """Test correlate function."""
     # The correlate function works on NA patterns, not the actual values
@@ -350,6 +361,13 @@ def test_correlate(data_with_na):
     result_cols = correlate(data_with_na, columns=["A", "B"])
     assert result_cols.shape[0] == 2
     assert result_cols.shape[1] == 2
+
+
+def test_correlate_preserves_requested_column_order(data_with_na):
+    result = correlate(data_with_na, columns=["C", "A", "B"])
+
+    assert result.index.tolist() == ["C", "A", "B"]
+    assert result.columns.tolist() == ["C", "A", "B"]
 
 
 def test_describe(data_with_na):
@@ -413,6 +431,42 @@ def test_model_with_invalid_column(data_with_na):
         model(data_with_na, col_na="nonexistent_col", columns=["A"])
 
 
+def test_model_rejects_reserved_intercept_predictor():
+    data = DataFrame({"target": [1, np.nan, 3], "(intercept)": [2, 3, 4]})
+
+    with pytest.raises(ValueError, match="reserved name"):
+        model(data, col_na="target", columns=["(intercept)"], fit_kws={"disp": False})
+
+
+def test_model_without_intercept_forwards_options_and_drops_target(monkeypatch):
+    captured = {}
+
+    class FakeLogit:
+        def __init__(self, endog, exog, **kwargs):
+            captured.update(endog=endog, exog=exog, logit_kws=kwargs)
+
+        def fit(self, **kwargs):
+            captured["fit_kws"] = kwargs
+            return "fitted"
+
+    monkeypatch.setattr(stats_module, "Logit", FakeLogit)
+    data = DataFrame({"target": [1.0, np.nan, 3.0], "predictor": [2.0, np.nan, 4.0]})
+
+    result = model(
+        data,
+        col_na="target",
+        intercept=False,
+        fit_kws={"disp": False},
+        logit_kws={"check_rank": False},
+    )
+
+    assert result == "fitted"
+    assert captured["endog"].tolist() == [0, 1, 0]
+    assert captured["exog"].columns.tolist() == ["predictor"]
+    assert captured["logit_kws"] == {"check_rank": False, "missing": "drop"}
+    assert captured["fit_kws"] == {"disp": False}
+
+
 def test_test_hypothesis(model_data):
     """Test test_hypothesis function."""
     # Create a binary indicator for NA in column y with both True and False values
@@ -430,6 +484,78 @@ def test_test_hypothesis(model_data):
 
     assert isinstance(result, dict)
     assert "x1" in result
+
+
+@pytest.mark.parametrize(
+    ("columns_factory", "expected_columns"),
+    [
+        (lambda: None, {"x1", "x2", "y"}),
+        (lambda: np.array(["x1", "x2"]), {"x1", "x2"}),
+        (lambda: {"x1", "x2"}, {"x1", "x2"}),
+        (lambda: (col for col in ["x1", "x2"]), {"x1", "x2"}),
+        (lambda: pd.Index(["x1", "x2"]), {"x1", "x2"}),
+    ],
+)
+def test_test_hypothesis_accepts_documented_iterables(model_data, columns_factory, expected_columns):
+    model_data["col_with_na"] = [1.0] * 50 + [np.nan] * 50
+
+    result = test_hypothesis(
+        model_data,
+        col_na="col_with_na",
+        test_fn=lambda group1, group2: (len(group1), len(group2)),
+        columns=columns_factory(),
+    )
+
+    assert set(result) == expected_columns
+
+
+def test_test_hypothesis_forwards_kwargs_and_controls_sample_nas():
+    data = DataFrame({"group": [1.0, 1.0, np.nan, np.nan], "value": [1.0, np.nan, 3.0, np.nan]})
+
+    def inspect_groups(group1, group2, *, marker):
+        return group1.tolist(), group2.tolist(), marker
+
+    dropped = test_hypothesis(
+        data,
+        col_na="group",
+        columns=["value"],
+        test_fn=inspect_groups,
+        test_kws={"marker": "forwarded"},
+    )
+    retained = test_hypothesis(
+        data,
+        col_na="group",
+        columns=["value"],
+        test_fn=lambda group1, group2: (group1.isna().sum(), group2.isna().sum()),
+        dropna=False,
+    )
+
+    assert dropped["value"] == ([1.0], [3.0], "forwarded")
+    assert retained["value"] == (1, 1)
+
+
+def test_test_hypothesis_uses_per_column_functions():
+    data = DataFrame({"group": [1.0, 1.0, np.nan, np.nan], "a": [1, 2, 3, 4], "b": [5, 6, 7, 8]})
+
+    result = test_hypothesis(
+        data,
+        col_na="group",
+        test_fn=lambda *_: None,
+        columns={
+            "a": lambda group1, group2: (group1.sum(), group2.sum()),
+            "b": lambda group1, group2: (group1.mean(), group2.mean()),
+        },
+    )
+
+    assert result == {"a": (3, 7), "b": (5.5, 7.5)}
+
+
+@pytest.mark.parametrize("group", [[1.0, 2.0], [np.nan, np.nan]])
+def test_test_hypothesis_requires_both_missingness_groups(group):
+    data = DataFrame({"group": group, "value": [1.0, 2.0]})
+
+    with pytest.raises(ValueError, match="both missing and non-missing"):
+        test_hypothesis(data, col_na="group", columns=["value"], test_fn=lambda *_: None)
 
 
 # Additional tests for improved functionality
@@ -474,6 +600,13 @@ def test_summary_with_empty_dataframe():
     except (ValueError, IndexError):
         # Expected for empty DataFrame
         pass
+
+
+def test_summary_zero_rows_has_finite_zero_percentages():
+    result = summary(DataFrame(columns=["A", "B"]))
+
+    assert result.loc["na_pct_per_col"].tolist() == [0.0, 0.0]
+    assert result.loc["rows_after_dropna_pct"].tolist() == [0.0, 0.0]
 
 
 def test_correlate_with_no_missing_values():

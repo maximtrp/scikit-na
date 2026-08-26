@@ -36,7 +36,6 @@ from altair import (
     X,
     Y,
     condition,
-    data_transformers,
     selection_point,
     value,
 )
@@ -45,9 +44,6 @@ from numpy import arange, fill_diagonal, nan
 from pandas import DataFrame
 
 from .._stats import _select_cols, correlate, stairs
-
-# Allow plotting more than 5000 rows
-data_transformers.disable_max_rows()
 
 
 def plot_hist(
@@ -125,10 +121,8 @@ def plot_hist(
     """
     if not chart_kws:
         chart_kws = {}
-    if not markarea_kws:
-        markarea_kws = {"opacity": 0.5, "interpolate": "step"}
-    if not markbar_kws:
-        markbar_kws = {"opacity": 0.5}
+    markarea_kws = {"opacity": 0.5, "interpolate": "step", **(markarea_kws or {})}
+    markbar_kws = {"opacity": 0.5, **(markbar_kws or {})}
     if not joinagg_kws:
         joinagg_kws = {"total": "count()", "groupby": [col_na]}
     if not calc_kws:
@@ -165,7 +159,7 @@ def plot_hist(
     data_copy[col_na] = data_copy.loc[:, col_na].isna().replace(na_replace)
 
     # Chart creation
-    chart = Chart(data_copy)
+    chart = Chart(data_copy, **chart_kws)
 
     chart = chart.mark_area(**markarea_kws) if step else chart.mark_bar(**markbar_kws)
 
@@ -256,8 +250,7 @@ def plot_kde(
     """
     if not chart_kws:
         chart_kws = {}
-    if not markarea_kws:
-        markarea_kws = {"opacity": 0.5}
+    markarea_kws = {"opacity": 0.5, **(markarea_kws or {})}
     if not density_kws:
         density_kws = {"density": col, "groupby": [col_na], "as_": [col, ylabel]}
     if not x_kws:
@@ -344,8 +337,7 @@ def plot_scatter(
         Scatter plot.
 
     """
-    if not circle_kws:
-        circle_kws = {"opacity": 0.5}
+    circle_kws = {"opacity": 0.5, **(circle_kws or {})}
     if not color_kws:
         color_kws = {"title": na_label or col_na}
     if not x_kws:
@@ -483,7 +475,7 @@ def plot_stairbars(
     dataset_label : str, optional
         Label for the whole dataset (before dropping any NAs).
     area_kws : dict, optional
-        Keyword arguments passed to :py:meth:`altair.Chart.mark_area()` method.
+        Keyword arguments passed to :py:meth:`altair.Chart.mark_bar()` method.
     chart_kws : dict, optional
         Keyword arguments passed to :py:meth:`altair.Chart()` class.
     x_kws : dict, optional
@@ -498,7 +490,7 @@ def plot_stairbars(
 
     """
     if not area_kws:
-        area_kws = {"interpolate": "step-after", "line": True}
+        area_kws = {}
     if not chart_kws:
         chart_kws = {}
     if not x_kws:
@@ -813,9 +805,11 @@ def view_dist(data: DataFrame, columns: Sequence[str] | None = None, **kwargs):
     na_cols = data.isna().sum(axis=0).rename("na_num").to_frame().query("na_num > 0").index.values
 
     return interact(
-        lambda Column, NA: plot_hist(data, col=Column, col_na=NA, **kwargs)
-        if Column != NA
-        else widgets.HTML('<em style="color: red">Note: select different columns</em>'),
+        lambda Column, NA: (
+            plot_hist(data, col=Column, col_na=NA, **kwargs)
+            if Column != NA
+            else widgets.HTML('<em style="color: red">Note: select different columns</em>')
+        ),
         Column=cols,
         NA=na_cols,
     )

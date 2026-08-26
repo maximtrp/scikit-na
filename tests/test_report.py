@@ -106,7 +106,7 @@ def test_report_with_options(
         layout=layout,
         round_dec=3,
         corr_kws={"mask_diag": False},
-        heat_kws={"cmap": "viridis"},
+        heat_kws={"sort": False},
         dist_kws={"na_label": "Missing"},
     )
 
@@ -122,6 +122,11 @@ def test_report_with_options(
     mock_plot_corr.assert_called()
     mock_plot_stairs.assert_called()
     mock_plot_heatmap.assert_called()
+    mock_plot_heatmap.assert_called_with(
+        sample_data,
+        columns=["numeric1", "numeric2"],
+        sort=False,
+    )
 
 
 # Test the decomposed helper functions
@@ -161,7 +166,7 @@ def test_create_visualization_tab(mock_display, mock_heatmap, mock_stairs, sampl
     mock_heatmap.return_value = MagicMock()
 
     cols = ["numeric1", "numeric2"]
-    result = _create_visualization_tab(sample_data, cols)
+    result = _create_visualization_tab(sample_data, cols, {"sort": False})
 
     # Check return type
     assert isinstance(result, widgets.VBox)
@@ -172,6 +177,7 @@ def test_create_visualization_tab(mock_display, mock_heatmap, mock_stairs, sampl
     # Verify plot functions were called
     mock_stairs.assert_called()
     mock_heatmap.assert_called()
+    mock_heatmap.assert_called_with(sample_data, columns=cols, sort=False)
 
 
 def test_create_statistics_tab_error_handling(sample_data):

@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 from pandas import DataFrame
 
+import src.scikit_na._export as export_module
 from src.scikit_na._export import export_report, export_summary
 
 
@@ -192,6 +193,25 @@ class TestExportReport:
             assert "C" in summary_df.columns
             assert "D" not in summary_df.columns
 
+    def test_export_report_summary_totals_use_selected_columns(self):
+        data = DataFrame({"selected": [1, np.nan], "excluded": [np.nan, np.nan]})
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            exported_files = export_report(
+                data,
+                tmp_dir,
+                columns=["selected"],
+                include_correlations=False,
+                include_descriptions=False,
+            )
+
+            with open(exported_files["report_summary"]) as file:
+                report_summary = json.load(file)
+
+        assert report_summary["dataset_shape"] == [2, 1]
+        assert report_summary["columns_analyzed"] == ["selected"]
+        assert report_summary["total_missing_values"] == 1
+        assert report_summary["missing_percentage"] == 50.0
+
     def test_export_report_no_correlations(self, sample_data_with_na):
         """Test export_report with correlations disabled."""
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -255,6 +275,40 @@ class TestExportReport:
             assert len(exported_files) > 0
             for file_path in exported_files.values():
                 assert Path(file_path).exists()
+
+    @pytest.mark.parametrize(
+        "exception", [ValueError("invalid data"), ImportError("missing dependency"), RuntimeError("unexpected")]
+    )
+    def test_export_report_keeps_core_files_when_correlations_fail(
+        self, sample_data_with_na, monkeypatch, capsys, exception
+    ):
+        def fail_correlations(*args, **kwargs):
+            raise exception
+
+        monkeypatch.setattr(export_module, "correlate", fail_correlations)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            exported_files = export_report(sample_data_with_na, tmp_dir, include_descriptions=False)
+
+        assert set(exported_files) == {"summary", "dataset_summary", "report_summary"}
+        assert "Warning: Could not generate correlations" in capsys.readouterr().out
+
+    @pytest.mark.parametrize(
+        "exception", [ValueError("invalid data"), ImportError("missing dependency"), RuntimeError("unexpected")]
+    )
+    def test_export_report_keeps_core_files_when_descriptions_fail(
+        self, sample_data_with_na, monkeypatch, capsys, exception
+    ):
+        def fail_descriptions(*args, **kwargs):
+            raise exception
+
+        monkeypatch.setattr(export_module, "describe", fail_descriptions)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            exported_files = export_report(sample_data_with_na, tmp_dir, include_correlations=False)
+
+        assert set(exported_files) == {"summary", "dataset_summary", "report_summary"}
+        assert "Warning: Could not generate descriptive statistics" in capsys.readouterr().out
 
 
 class TestExportEdgeCases:
@@ -398,4 +452,3 @@ class TestExportIntegration:
             assert report_summary["total_missing_values"] > 0
             assert 0 < report_summary["missing_percentage"] < 100
             assert len(report_summary["columns_analyzed"]) == 6
-

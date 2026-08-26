@@ -2,25 +2,25 @@ name: Publish Package
 
 on:
   release:
-    types: [created]
+    types: [published]
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.x"
+          python-version: "3.12"
       - name: Build package
         run: |
           python -m pip install --upgrade pip build
           python -m build
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}

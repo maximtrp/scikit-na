@@ -177,6 +177,21 @@ def test_plot_hist_with_options(sample_data):
     assert isinstance(chart, alt.Chart)
 
 
+def test_plot_hist_applies_chart_options_and_merges_mark_defaults(sample_data):
+    chart = plot_hist(
+        data=sample_data,
+        col="numeric1",
+        col_na="numeric1_na",
+        chart_kws={"title": "Custom histogram"},
+        markbar_kws={"color": "blue"},
+    )
+
+    spec = chart.to_dict(validate=True)
+    assert spec["title"] == "Custom histogram"
+    assert spec["mark"]["color"] == "blue"
+    assert spec["mark"]["opacity"] == 0.5
+
+
 def test_plot_kde_with_options(sample_data):
     """Test plot_kde function with various options."""
     chart = plot_kde(
@@ -190,6 +205,20 @@ def test_plot_kde_with_options(sample_data):
     )
 
     assert isinstance(chart, alt.Chart)
+
+
+def test_custom_marks_without_opacity_are_valid(sample_data):
+    kde = plot_kde(sample_data, "numeric1", "numeric1_na", markarea_kws={"clip": True})
+    scatter = plot_scatter(sample_data, "numeric1", "numeric2", "numeric1_na", circle_kws={"size": 30})
+
+    assert kde.to_dict(validate=True)["mark"]["opacity"] == 0.5
+    assert scatter.to_dict(validate=True)["mark"]["opacity"] == 0.5
+
+
+def test_plot_stairbars_serializes_with_valid_bar_options(sample_data):
+    spec = plot_stairbars(sample_data).to_dict(validate=True)
+
+    assert spec["mark"]["type"] == "bar"
 
 
 def test_plot_corr_with_options(sample_data):

@@ -92,7 +92,7 @@ The following examples use the Titanic dataset (from Kaggle) that contains NA va
 | `na.test_hypothesis()` | Statistical tests for MCAR |
 | `na.report()` | Interactive widget-based report |
 | `na.export_summary()` | Export analysis to files |
-| `na.export_report()` | Export interactive reports |
+| `na.export_report()` | Export multi-file analysis reports |
 
 ### Summary
 
@@ -277,34 +277,35 @@ Export your analysis results to various formats for sharing and further processi
 
 ```python
 # Export to CSV
-na.export_summary(data, filename='missing_data_summary.csv', format='csv')
+na.export_summary(data, 'missing_data_summary.csv', format='csv')
 
 # Export to JSON
-na.export_summary(data, filename='summary.json', format='json')
+na.export_summary(data, 'summary.json', format='json')
 
 # Export to Excel
-na.export_summary(data, filename='analysis.xlsx', format='xlsx')
+na.export_summary(data, 'analysis.xlsx', format='xlsx')
 ```
 
-#### Export interactive reports
+#### Export comprehensive reports
 
 ```python
-# Export complete report to HTML
-na.export_report(data, filename='missing_data_report.html', format='html')
+# Export summaries, correlations, descriptions, and report metadata
+exported_files = na.export_report(data, output_dir='missing_data_report')
 
 # Export with custom columns
-na.export_report(
-    data, 
+exported_files = na.export_report(
+    data,
+    output_dir='focused_analysis',
     columns=['Age', 'Cabin', 'Embarked'],
-    filename='focused_analysis.html', 
-    format='html'
 )
 ```
 
-The export functionality supports:
+`export_report()` creates a directory containing CSV summaries and JSON metadata.
+Correlation and descriptive-statistics CSV files are included when applicable.
+Individual summaries exported with `export_summary()` support:
 - **CSV**: Summary statistics in tabular format
-- **JSON**: Structured data for programmatic access  
-- **HTML**: Interactive reports for web viewing
+- **JSON**: Structured data for programmatic access
+- **HTML**: Static summary tables for web viewing
 - **XLSX**: Excel-compatible spreadsheets
 
 ## API Reference
@@ -324,8 +325,8 @@ The export functionality supports:
 - `altair.plot_hist(data, col, col_na, **kwargs)` - Missing data histogram
 
 ### Export Functions  
-- `export_summary(data, filename, format, **kwargs)` - Export summary statistics
-- `export_report(data, filename, format, **kwargs)` - Export interactive reports
+- `export_summary(data, output_path, format='csv', **kwargs)` - Export summary statistics
+- `export_report(data, output_dir, **kwargs)` - Export a multi-file analysis report
 
 ### Interactive Reports
 - `report(data, columns=None, **kwargs)` - Generate interactive widget-based report

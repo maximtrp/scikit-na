@@ -5,10 +5,9 @@ from __future__ import annotations
 __all__ = ["correlate", "describe", "model", "stairs", "summary", "test_hypothesis"]
 
 from collections.abc import Iterable, Sequence
-from functools import partial
 from typing import Any, Callable, Dict, List
 
-from numpy import array, nan, ndarray, r_, setdiff1d
+from numpy import array, ndarray, r_, setdiff1d
 from pandas import DataFrame, Index, Series, StringDtype, concat
 from pandas.api.types import is_numeric_dtype as _is_numeric_dtype
 from statsmodels.discrete.discrete_model import BinaryResultsWrapper, Logit
@@ -28,9 +27,7 @@ def _select_cols(
 
 def _get_nominal_cols(data: DataFrame, columns: Sequence[str] | None = None) -> ndarray:
     cols = _select_cols(data, columns)
-    return array(
-        [col for col in cols if data[col].dtype == object or isinstance(data[col].dtype, StringDtype)]
-    )
+    return array([col for col in cols if data[col].dtype == object or isinstance(data[col].dtype, StringDtype)])
 
 
 def _get_numeric_cols(data: DataFrame, columns: Sequence[str] | None = None) -> ndarray:
@@ -57,6 +54,8 @@ def _get_abs_na_count(data: DataFrame, cols: Iterable[str]) -> Series:
 
 
 def _get_na_perc(data: DataFrame, na_abs: Series) -> Series:
+    if data.shape[0] == 0:
+        return Series(0.0, index=na_abs.index)
     return na_abs / data.shape[0] * 100
 
 
@@ -152,25 +151,19 @@ def summary(
     - Use per_column=True for detailed column-by-column analysis
     """
     cols = _select_cols(data, columns)
-    data_copy = data.loc[:, cols].copy()
-    na_by_inst = data_copy.isna().sum(axis=1) == 1
-    na_total = _get_total_na_count(data_copy, cols)
+    data_selected = data.loc[:, cols]
+    na_mask = data_selected.isna()
+    na_abs_count = na_mask.sum(axis=0).rename("na_count")
+    na_total = int(na_abs_count.sum())
 
     if per_column:
-        get_unique_na = partial(_get_unique_na, na_by_inst, data_copy)
-        get_rows_after_dropna = partial(_get_rows_after_dropna, data_copy)
-
-        na_abs_count = _get_abs_na_count(data_copy, cols).rename("na_count")
-        na_percentage = _get_na_perc(data_copy, na_abs_count).rename("na_pct_per_col")
+        row_na_count = na_mask.sum(axis=1)
+        na_percentage = _get_na_perc(data_selected, na_abs_count).rename("na_pct_per_col")
         na_percentage_total = (na_abs_count / na_total * 100).rename("na_pct_total").fillna(0)
-        na_unique = Series(list(map(get_unique_na, cols)), index=cols, name="na_unique_per_col")
+        na_unique = na_mask.loc[row_na_count == 1].sum(axis=0).rename("na_unique_per_col")
         na_unique_percentage = (na_unique / na_abs_count * 100).rename("na_unique_pct_per_col").fillna(0)
-        rows_after_dropna = Series(
-            list(map(get_rows_after_dropna, cols)),
-            index=cols,
-            name="rows_after_dropna",
-        )
-        rows_perc_after_dropna = (rows_after_dropna / data_copy.shape[0] * 100).rename("rows_after_dropna_pct")
+        rows_after_dropna = (data_selected.shape[0] - na_abs_count).rename("rows_after_dropna")
+        rows_perc_after_dropna = _get_na_perc(data_selected, rows_after_dropna).rename("rows_after_dropna_pct")
         na_df = concat(
             (
                 na_abs_count,
@@ -185,8 +178,8 @@ def summary(
         )
         na_df = na_df.T
     else:
-        rows_after_dropna = _get_rows_after_dropna(data_copy.loc[:, cols])
-        total_cells = data_copy.shape[0] * data_copy.shape[1]
+        rows_after_dropna = int((~na_mask.any(axis=1)).sum())
+        total_cells = data_selected.shape[0] * data_selected.shape[1]
 
         # Handle division by zero for empty datasets
         if total_cells > 0:
@@ -196,16 +189,16 @@ def summary(
             na_percentage_total = 0.0
             non_na_cells_pct = 0.0
 
-        na_col_raw = data_copy.isna().sum()
+        na_col_raw = na_abs_count
         na_col_num = na_col_raw[na_col_raw > 0].size
-        na_col_only = (na_col_raw == data_copy.shape[0]).sum()
+        na_col_only = (na_col_raw == data_selected.shape[0]).sum()
         na_df = DataFrame(
             {
-                "total_cols": data_copy.shape[1],
+                "total_cols": data_selected.shape[1],
                 "na_cols": na_col_num,
                 "na_only_cols": na_col_only,
-                "total_rows": data_copy.shape[0],
-                "na_rows": data_copy.shape[0] - rows_after_dropna,
+                "total_rows": data_selected.shape[0],
+                "na_rows": data_selected.shape[0] - rows_after_dropna,
                 "non_na_rows": rows_after_dropna,
                 "total_cells": total_cells,
                 "na_cells": na_total,
@@ -316,21 +309,19 @@ def stairs(
     - Useful for deciding column inclusion/exclusion strategies in analysis pipelines
     """
     cols = _select_cols(data, columns).tolist()
-    data_copy = data.loc[:, cols].copy()
+    na_mask = data.loc[:, cols].isna()
+    surviving = Series(True, index=data.index)
+    pending = cols.copy()
     stairs_values = []
     stairs_labels = []
 
-    while len(cols) > 0:
-        cols_by_na = data_copy.isna().sum(axis=0).sort_values(ascending=False)
-        col_max_na = cols_by_na.head(1)
-        col_max_na_name = col_max_na.index.item()
-        col_max_na_val = col_max_na.item()
-        if not col_max_na_val:
-            break
-        stairs_values.append(data_copy.shape[0] - col_max_na_val)
+    while pending:
+        remaining_na = na_mask.loc[surviving, pending].sum(axis=0)
+        col_max_na_name = remaining_na.idxmax()
+        surviving &= ~na_mask[col_max_na_name]
+        stairs_values.append(int(surviving.sum()))
         stairs_labels.append(col_max_na_name)
-        data_copy = data_copy.dropna(subset=[col_max_na_name])
-        cols = data_copy.columns.tolist()
+        pending.remove(col_max_na_name)
 
     stairs_values = array([data.shape[0], *stairs_values])
     stairs_labels = [dataset_label, *stairs_labels]
@@ -423,12 +414,10 @@ def correlate(data: DataFrame, columns: Iterable[str] | None = None, drop: bool 
     """
     cols = _select_cols(data, columns)
     kwargs.setdefault("method", "spearman")
+    na_mask = data.loc[:, cols].isna()
     if drop:
-        cols_with_na = data.isna().sum(axis=0).replace({0: nan}).dropna().index.values
-        _cols = set(cols).intersection(cols_with_na)
-    else:
-        _cols = set(cols)
-    return data.loc[:, list(_cols)].isna().corr(**kwargs)
+        na_mask = na_mask.loc[:, na_mask.any(axis=0)]
+    return na_mask.corr(**kwargs)
 
 
 def describe(
@@ -462,7 +451,7 @@ def describe(
     cols = _select_cols(data, columns).tolist()
 
     descr_stats = (
-        data.loc[:, list(set(cols).difference([col_na]))]
+        data.loc[:, [col for col in cols if col != col_na]]
         .groupby(data[col_na].isna().replace(na_mapping))
         .describe()
         .T.unstack(0)
@@ -595,6 +584,8 @@ def model(
         logit_kws = {}
 
     if intercept:
+        if "(intercept)" in cols_pred:
+            raise ValueError("Predictor columns cannot contain the reserved name '(intercept)'")
         data_copy["(intercept)"] = 1.0
         cols_pred = r_[["(intercept)"], cols_pred]
 
@@ -687,9 +678,7 @@ def test_hypothesis(
     # Grouping data by NA/non-NA values in `col_na`
     groups = data.groupby(data[col_na].isna()).groups
     if True not in groups or False not in groups:
-        raise ValueError(
-            f"Column '{col_na}' must have both missing and non-missing values to run hypothesis tests"
-        )
+        raise ValueError(f"Column '{col_na}' must have both missing and non-missing values to run hypothesis tests")
 
     # Initializing
     results = {}
@@ -706,7 +695,7 @@ def test_hypothesis(
             result = func(*_get_groups(data, groups, col, dropna))
             results[col] = result
 
-    elif isinstance(columns, Sequence):
+    else:
         for col in columns:
             result = test_fn(*_get_groups(data, groups, col, dropna), **test_kws)
             results[col] = result

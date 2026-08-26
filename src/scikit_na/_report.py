@@ -69,8 +69,9 @@ def _create_summary_tab(data: DataFrame, cols: list, round_dec: int) -> widgets.
     return widgets.VBox([select_accordion, summary_table_accordion, total_summary_accordion])
 
 
-def _create_visualization_tab(data: DataFrame, cols: list) -> widgets.VBox:
+def _create_visualization_tab(data: DataFrame, cols: list, heat_kws: dict | None = None) -> widgets.VBox:
     """Create the visualization tab with stairs plot and heatmap."""
+    heat_kws = heat_kws or {}
 
     # Columns selection callback
     def _on_vis_col_select(names):
@@ -79,7 +80,7 @@ def _create_visualization_tab(data: DataFrame, cols: list) -> widgets.VBox:
         with stairs_plot:
             display(plot_stairs(data, columns=names["new"]))
         with heatmap_plot:
-            display(plot_heatmap(data, columns=names["new"]))
+            display(plot_heatmap(data, columns=names["new"], **heat_kws))
 
     select_vis_cols = widgets.SelectMultiple(options=cols, rows=6)
     select_vis_cols.observe(_on_vis_col_select, names="value")
@@ -91,7 +92,7 @@ def _create_visualization_tab(data: DataFrame, cols: list) -> widgets.VBox:
     stairs_plot = widgets.Output()
     stairs_plot.append_display_data(plot_stairs(data, columns=cols))
     heatmap_plot = widgets.Output()
-    heatmap_plot.append_display_data(plot_heatmap(data, columns=cols))
+    heatmap_plot.append_display_data(plot_heatmap(data, columns=cols, **heat_kws))
 
     # Joining two plots into one container
     vis_box = widgets.HBox([stairs_plot, heatmap_plot])
@@ -455,7 +456,7 @@ def report(
 
     # Create tabs using helper functions
     summary_tab = _create_summary_tab(data, cols, round_dec)
-    vis_tab = _create_visualization_tab(data, cols)
+    vis_tab = _create_visualization_tab(data, cols, heat_kws)
     stats_tab = _create_statistics_tab(data, cols, round_dec, layout)
     corr_tab = _create_correlation_tab(data, na_cols, corr_kws)
     dist_tab = _create_distributions_tab(data, cols, dist_kws)
