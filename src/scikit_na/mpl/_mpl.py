@@ -5,7 +5,6 @@ from __future__ import annotations
 __all__ = ["plot_corr", "plot_heatmap", "plot_hist", "plot_kde", "plot_stats"]
 
 from collections.abc import Sequence
-from typing import List
 
 from matplotlib.axes import Axes
 from matplotlib.patches import Patch
@@ -15,6 +14,18 @@ from pandas import DataFrame
 from seaborn import barplot, diverging_palette, heatmap, histplot, kdeplot
 
 from .._stats import _select_cols, correlate
+
+
+def _group_by_na(data: DataFrame, col: str, col_na: str, col_na_fmt: str) -> DataFrame:
+    """Return a 2-column frame with `col` and a boolean NA-group flag for `col_na`."""
+    if col == col_na:
+        raise ValueError(
+            f"`col` and `col_na` must be different columns, both are '{col}'. "
+            "A column cannot be compared against its own missingness.",
+        )
+    data_copy = data.loc[:, [col, col_na]].copy()
+    data_copy[col_na_fmt.format(col_na)] = data_copy.loc[:, col_na].isna()
+    return data_copy
 
 
 def plot_corr(
@@ -45,16 +56,15 @@ def plot_corr(
         Heatmap AxesSubplot object.
 
     """
-    if not heat_kws:
-        heat_kws = {
-            "vmin": -1,
-            "vmax": 1,
-            "annot": True,
-            "square": True,
-            "cmap": diverging_palette(240, 10, as_cmap=True),
-        }
-    if not corr_kws:
-        corr_kws = {"method": "spearman"}
+    heat_kws = {
+        "vmin": -1,
+        "vmax": 1,
+        "annot": True,
+        "square": True,
+        "cmap": diverging_palette(240, 10, as_cmap=True),
+        **(heat_kws or {}),
+    }
+    corr_kws = {"method": "spearman", **(corr_kws or {})}
 
     cols = _select_cols(data, columns)
 
@@ -168,7 +178,7 @@ def plot_heatmap(
     columns: Sequence[str] | None = None,
     droppable: bool = True,
     sort: bool = True,
-    cmap: List[ColorType] | None = None,
+    cmap: list[ColorType] | None = None,
     names: Sequence[str] | None = None,
     yaxis: bool = False,
     xaxis: bool = True,
@@ -217,29 +227,30 @@ def plot_heatmap(
         cmap = ["green", "orange", "red"]
     if not names:
         names = ["Filled", "Droppable", "NA"]
-    if not sb_kws:
-        sb_kws = {"cbar": False}
+    # Pin the colour limits so that a category always maps to the same colour,
+    # instead of seaborn rescaling to whichever categories happen to be present.
+    sb_kws = {"cbar": False, "vmin": 0, "vmax": 1, **(sb_kws or {})}
 
     cols = _select_cols(data, columns).tolist()
-    data_na = data.loc[:, cols].isna().copy()
+    data_na = data.loc[:, cols].isna()
     if sort:
-        data_na.sort_values(by=cols, inplace=True)
+        data_na = data_na.sort_values(by=cols)
 
     if droppable:
-        non_na_mask = ~data_na.values
-        na_rows_mask = data_na.any(axis=1).values[:, None]
+        non_na_mask = ~data_na.to_numpy()
+        na_rows_mask = data_na.any(axis=1).to_numpy()[:, None]
         droppable_mask = non_na_mask & na_rows_mask
         data_na = data_na.astype(float).mask(droppable_mask, other=0.5)
         labels = names
     else:
         labels = [names[0], names[-1]]
 
-    if not legend_kws:
-        legend_kws = {
-            "bbox_to_anchor": (0.5, 1.15),
-            "loc": "upper center",
-            "ncol": len(labels),
-        }
+    legend_kws = {
+        "bbox_to_anchor": (0.5, 1.15),
+        "loc": "upper center",
+        "ncol": len(labels),
+        **(legend_kws or {}),
+    }
 
     ax_heatmap = heatmap(data_na, cmap=cmap, **sb_kws)
     ax_heatmap.yaxis.set_visible(yaxis)
@@ -383,14 +394,10 @@ def plot_hist(
         AxesSubplot returned by :py:meth:`seaborn.histplot`.
 
     """
-    if not hist_kws:
-        hist_kws = {"stat": stat, "common_norm": common_norm}
+    hist_kws = {"stat": stat, "common_norm": common_norm, **(hist_kws or {})}
 
-    data_copy = data.loc[:, [col, col_na]].copy()
-    col_na_name = col_na_fmt.format(col_na)
-    data_copy[col_na_name] = data_copy.loc[:, col_na].isna()
-
-    return histplot(x=col, hue=col_na_name, data=data_copy, **hist_kws)
+    data_copy = _group_by_na(data, col, col_na, col_na_fmt)
+    return histplot(x=col, hue=col_na_fmt.format(col_na), data=data_copy, **hist_kws)
 
 
 def plot_kde(
@@ -425,11 +432,7 @@ def plot_kde(
         AxesSubplot returned by :py:meth:`seaborn.kdeplot()`.
 
     """
-    if not kde_kws:
-        kde_kws = {"common_norm": common_norm}
+    kde_kws = {"common_norm": common_norm, **(kde_kws or {})}
 
-    data_copy = data.loc[:, [col, col_na]].copy()
-    col_na_name = col_na_fmt.format(col_na)
-    data_copy[col_na_name] = data_copy.loc[:, col_na].isna()
-
-    return kdeplot(x=col, hue=col_na_name, data=data_copy, **kde_kws)
+    data_copy = _group_by_na(data, col, col_na, col_na_fmt)
+    return kdeplot(x=col, hue=col_na_fmt.format(col_na), data=data_copy, **kde_kws)

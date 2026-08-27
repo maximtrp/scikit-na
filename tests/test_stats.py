@@ -1,9 +1,11 @@
 import logging
+
 import numpy as np
 import pandas as pd
 import pytest
 from numpy import ndarray
 from pandas import DataFrame, Series
+from statsmodels.discrete.discrete_model import BinaryResultsWrapper
 
 import src.scikit_na._stats as stats_module
 from src.scikit_na._stats import (
@@ -49,7 +51,7 @@ def fixture_sample_data():
 @pytest.fixture(name="data_with_na")
 def fixture_data_with_na():
     """Create a sample DataFrame with missing values for testing."""
-    df = DataFrame(
+    return DataFrame(
         {
             "A": [1, 2, np.nan, 4, 5],
             "B": [np.nan, 2.2, 3.3, np.nan, 5.5],
@@ -57,7 +59,6 @@ def fixture_data_with_na():
             "D": [True, False, True, np.nan, True],
         }
     )
-    return df
 
 
 @pytest.fixture(name="correlation_data")
@@ -143,11 +144,26 @@ def test_get_nominal_cols_all_columns(sample_data):
     """Test _get_nominal_cols with all columns."""
     nominal_cols = _get_nominal_cols(sample_data)
 
-    # Only string and mixed columns should be identified as nominal
-    assert set(nominal_cols) == {"string_col", "mixed_col"}
-    assert len(nominal_cols) == 2
+    # String, categorical and mixed columns are all nominal
+    assert set(nominal_cols) == {"string_col", "categorical", "mixed_col"}
+    assert len(nominal_cols) == 3
     assert "numeric_int" not in nominal_cols
     assert "numeric_float" not in nominal_cols
+
+
+def test_get_nominal_cols_includes_extension_dtypes():
+    """Categorical and StringDtype columns must be reported as nominal."""
+    data = DataFrame(
+        {
+            "cat": pd.Categorical(["a", "b", "a"]),
+            "string": pd.array(["x", "y", None], dtype="string"),
+            "object": ["p", "q", "r"],
+            "number": [1.0, 2.0, 3.0],
+        }
+    )
+
+    assert set(_get_nominal_cols(data)) == {"cat", "string", "object"}
+    assert set(_get_numeric_cols(data)) == {"number"}
 
 
 def test_get_nominal_cols_subset(sample_data):
@@ -330,8 +346,8 @@ def test_stairs(data_with_na):
 
     # Test with specific columns
     result_cols = stairs(data_with_na, columns=["A", "B"])
-    assert "A" in result_cols["Columns"].values
-    assert "B" in result_cols["Columns"].values
+    assert "A" in result_cols["Columns"].to_numpy()
+    assert "B" in result_cols["Columns"].to_numpy()
 
 
 def test_stairs_includes_zero_impact_columns():
@@ -391,7 +407,7 @@ def test_describe(data_with_na):
     assert isinstance(result_mapping, DataFrame)
 
 
-def test_model(data_with_na):
+def test_model():
     """Test model function."""
     # Create a simple dataset with a clear pattern for the model
     np.random.seed(42)
@@ -403,26 +419,12 @@ def test_model(data_with_na):
         }
     )
 
-    # Test logistic regression with a simple dataset
-    try:
-        result = model(test_df, col_na="na_col", columns=["x", "y"], fit_kws={"disp": False})
-        # If the model runs successfully, check that it has the expected attributes
-        assert hasattr(result, "summary")
-        assert hasattr(result, "params")
-        assert hasattr(result, "pvalues")
-        # Check return type matches type hint
-        from statsmodels.discrete.discrete_model import BinaryResultsWrapper
+    result = model(test_df, col_na="na_col", columns=["x", "y"], fit_kws={"disp": False})
 
-        assert isinstance(result, BinaryResultsWrapper)
-    except (ImportError, AttributeError) as e:
-        logger.exception("Model test failed due to missing dependencies or attribute error")
-        pytest.skip(f"Model test skipped due to dependency issue: {e}")
-    except (ValueError, TypeError, KeyError) as e:
-        logger.exception("Model test failed due to invalid data or parameters")
-        pytest.skip(f"Model test skipped due to data/parameter error: {e}")
-    except Exception as e:
-        logger.exception("Unexpected error occurred while testing model function")
-        pytest.skip(f"Model test skipped due to unexpected error: {e}")
+    assert isinstance(result, BinaryResultsWrapper)
+    assert hasattr(result, "summary")
+    assert hasattr(result, "params")
+    assert hasattr(result, "pvalues")
 
 
 def test_model_with_invalid_column(data_with_na):
@@ -668,3 +670,46 @@ def test_stairs_with_custom_labels(data_with_na):
     assert "Custom X" in result.columns
     assert "Custom Y" in result.columns
     assert "Custom Tooltip" in result.columns
+
+
+def test_model_rejects_non_numeric_predictors(data_with_na):
+    """Non-numeric predictors used to surface as a cryptic statsmodels error."""
+    with pytest.raises(ValueError, match="must be numeric"):
+        model(data_with_na, col_na="A", columns=["B", "C"])
+
+
+def test_model_error_names_the_offending_columns(data_with_na):
+    """The message must point at the columns that need encoding."""
+    with pytest.raises(ValueError, match="must be numeric") as excinfo:
+        model(data_with_na, col_na="A", columns=["B", "C"])
+
+    assert "C" in str(excinfo.value)
+
+
+def test_stairs_short_circuit_matches_full_scan():
+    """The early exit must produce exactly the same table as a full scan."""
+    rng = np.random.default_rng(7)
+    data = DataFrame(rng.random((200, 8)), columns=[f"c{i}" for i in range(8)])
+    # Only two columns carry NAs; the other six contribute nothing.
+    data["c2"] = data["c2"].mask(rng.random(200) < 0.2)
+    data["c5"] = data["c5"].mask(rng.random(200) < 0.1)
+
+    result = stairs(data)
+
+    # Every column is still reported, in NA-impact order, and the columns with
+    # no NAs all sit at the final level.
+    assert len(result) == data.shape[1] + 1
+    assert result["Columns"].tolist()[:3] == ["(Whole dataset)", "c2", "c5"]
+    assert set(result["Columns"].tolist()[3:]) == {"c0", "c1", "c3", "c4", "c6", "c7"}
+    assert result["Instances"].tolist()[2:] == [data.dropna().shape[0]] * 7
+    assert result["Size difference"].tolist()[3:] == [0.0] * 6
+
+
+def test_stairs_with_no_missing_values_keeps_every_column():
+    """A frame without NAs still yields one row per column, all at full size."""
+    data = DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]})
+
+    result = stairs(data)
+
+    assert result["Columns"].tolist() == ["(Whole dataset)", "a", "b", "c"]
+    assert result["Instances"].tolist() == [3, 3, 3, 3]

@@ -5,18 +5,20 @@ from __future__ import annotations
 __all__ = ["correlate", "describe", "model", "stairs", "summary", "test_hypothesis"]
 
 from collections.abc import Iterable, Sequence
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable
 
 from numpy import array, ndarray, r_, setdiff1d
-from pandas import DataFrame, Index, Series, StringDtype, concat
+from pandas import CategoricalDtype, DataFrame, Index, Series, StringDtype, concat
+from pandas.api.types import is_bool_dtype as _is_bool_dtype
 from pandas.api.types import is_numeric_dtype as _is_numeric_dtype
+from pandas.api.types import is_object_dtype as _is_object_dtype
 from statsmodels.discrete.discrete_model import BinaryResultsWrapper, Logit
 
 
 def _select_cols(
     data: DataFrame,
     columns: Iterable[str] | None = None,
-    second_var: List[str] | None = None,
+    second_var: list[str] | None = None,
 ) -> ndarray:
     return array(
         list(col for col in columns)  # noqa: C400
@@ -25,14 +27,31 @@ def _select_cols(
     )
 
 
+def _is_nominal_series(series: Series) -> bool:
+    """Tell whether a Series should be treated as nominal (categorical) data.
+
+    Covers plain ``object`` columns as well as the pandas extension dtypes that
+    represent categories or text: ``StringDtype`` and ``CategoricalDtype``.
+    Booleans are deliberately excluded: they are neither nominal nor numeric
+    here (see :func:`_is_numeric_series`).
+    """
+    dtype = series.dtype
+    return bool(_is_object_dtype(dtype) or isinstance(dtype, (StringDtype, CategoricalDtype)))
+
+
+def _is_numeric_series(series: Series) -> bool:
+    """Tell whether a Series holds numeric (non-boolean) data."""
+    return bool(_is_numeric_dtype(series) and not _is_bool_dtype(series))
+
+
 def _get_nominal_cols(data: DataFrame, columns: Sequence[str] | None = None) -> ndarray:
     cols = _select_cols(data, columns)
-    return array([col for col in cols if data[col].dtype == object or isinstance(data[col].dtype, StringDtype)])
+    return array([col for col in cols if _is_nominal_series(data[col])])
 
 
 def _get_numeric_cols(data: DataFrame, columns: Sequence[str] | None = None) -> ndarray:
     cols = _select_cols(data, columns)
-    return array([col for col in cols if _is_numeric_dtype(data[col]) and data[col].dtype.kind != "b"])
+    return array([col for col in cols if _is_numeric_series(data[col])])
 
 
 def _get_unique_na(nas: Series, data: DataFrame, col: str) -> int:
@@ -43,7 +62,7 @@ def _get_rows_after_dropna(data: DataFrame, col: str | None = None) -> int:
     return (data.shape[0] - data.loc[:, col].isna().sum()) if col else data.dropna().shape[0]
 
 
-def _get_rows_after_cum_dropna(data: DataFrame, cols: List[str] | None = None, col: str | None = None) -> int:
+def _get_rows_after_cum_dropna(data: DataFrame, cols: list[str] | None = None, col: str | None = None) -> int:
     if not cols:
         cols = []
     return data.dropna(subset=([*cols, col] if col else cols)).shape[0]
@@ -318,6 +337,16 @@ def stairs(
     while pending:
         remaining_na = na_mask.loc[surviving, pending].sum(axis=0)
         col_max_na_name = remaining_na.idxmax()
+
+        if remaining_na[col_max_na_name] == 0:
+            # None of the pending columns removes any further row: they all sit
+            # at the current level. Appending them in order matches what the
+            # idxmax loop would have produced, without rescanning the mask.
+            rows_left = int(surviving.sum())
+            stairs_values.extend([rows_left] * len(pending))
+            stairs_labels.extend(pending)
+            break
+
         surviving &= ~na_mask[col_max_na_name]
         stairs_values.append(int(surviving.sum()))
         stairs_labels.append(col_max_na_name)
@@ -424,7 +453,7 @@ def describe(
     data: DataFrame,
     col_na: str,
     columns: Sequence[str] | None = None,
-    na_mapping: Dict[bool, str] | None = None,
+    na_mapping: dict[bool, str] | None = None,
 ) -> DataFrame:
     """Describe data grouped by a column with NA values.
 
@@ -464,8 +493,8 @@ def model(
     col_na: str,
     columns: Sequence[str] | None = None,
     intercept: bool = True,
-    fit_kws: Dict[str, Any] | None = None,
-    logit_kws: Dict[str, Any] | None = None,
+    fit_kws: dict[str, Any] | None = None,
+    logit_kws: dict[str, Any] | None = None,
 ) -> BinaryResultsWrapper:
     """Fit logistic regression model to predict missing data patterns.
 
@@ -576,7 +605,16 @@ def model(
     """
     cols = _select_cols(data, columns)
     cols_pred = setdiff1d(cols, [col_na])
-    data_copy = data.loc[:, cols_pred.tolist() + [col_na]].copy()
+
+    non_numeric = [col for col in cols_pred if not _is_numeric_series(data[col])]
+    if non_numeric:
+        raise ValueError(
+            "Predictor columns must be numeric, but these are not: "
+            f"{', '.join(map(str, non_numeric))}. "
+            "Encode them numerically (e.g. with pandas.get_dummies) before fitting.",
+        )
+
+    data_copy = data.loc[:, [*cols_pred.tolist(), col_na]].copy()
 
     if not fit_kws:
         fit_kws = {}
@@ -603,10 +641,10 @@ def test_hypothesis(
     data: DataFrame,
     col_na: str,
     test_fn: Callable[..., Any],
-    test_kws: Dict[str, Any] | None = None,
-    columns: Iterable[str] | Dict[str, Callable[..., Any]] | None = None,
+    test_kws: dict[str, Any] | None = None,
+    columns: Iterable[str] | dict[str, Callable[..., Any]] | None = None,
     dropna: bool = True,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Test a statistical hypothesis.
 
     This function can be used to find evidence against missing
@@ -620,7 +658,7 @@ def test_hypothesis(
     col_na : str
         Column to group values by. :py:meth:`pandas.Series.isna()` method
         is applied before grouping.
-    columns : Optional[Union[Sequence[str], Dict[str, callable]]]
+    columns : Optional[Union[Sequence[str], dict[str, callable]]]
         Columns to test hypotheses on.
     test_fn : callable, optional
         Function to test hypothesis on NA/non-NA data.
@@ -634,7 +672,7 @@ def test_hypothesis(
 
     Returns
     -------
-    Dict[str, object]
+    dict[str, object]
         Dictionary with tests results as `column` => test function output.
 
     Example

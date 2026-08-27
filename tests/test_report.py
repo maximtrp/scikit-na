@@ -196,24 +196,17 @@ def test_create_statistics_tab_error_handling(sample_data):
 
 
 # Test improved error handling
-def test_report_error_handling_in_describe(sample_data):
+@patch("src.scikit_na._report.describe")
+def test_report_error_handling_in_describe(mock_describe, sample_data):
     """Test that report handles errors in describe function gracefully."""
-    # Create data that will cause describe to fail
-    problem_data = sample_data.copy()
+    # describe() fails, report must still build every tab
+    mock_describe.side_effect = ValueError("describe is broken")
 
-    # Should not crash the entire report even with problematic data
-    try:
-        tab = report(problem_data)
-        assert isinstance(tab, widgets.Tab)
-    except (ImportError, AttributeError) as e:
-        logger.exception("Report failed due to missing dependencies or attribute error")
-        pytest.skip(f"Report skipped due to dependency issue: {e}")
-    except (ValueError, TypeError, KeyError) as e:
-        logger.exception("Report failed due to invalid data or parameters")
-        pytest.skip(f"Report failed with expected data error: {e}")
-    except Exception as e:
-        logger.exception("Unexpected error occurred while testing report function")
-        pytest.skip(f"Report failed with unexpected error: {e}")
+    tab = report(sample_data)
+
+    assert isinstance(tab, widgets.Tab)
+    assert len(tab.children) == 5
+    mock_describe.assert_called()
 
 
 def test_report_return_type_hint(sample_data):
@@ -301,16 +294,16 @@ def test_create_distributions_tab(mock_plot_hist, sample_data):
 def test_report_parameter_types(sample_data):
     """Test that report function accepts proper parameter types."""
     # Test with different parameter types to match type hints
-    from typing import Any, Dict
+    from typing import Any
 
     # Test Optional[Sequence[str]] for columns - use multiple columns
     result1 = report(sample_data, columns=["numeric1", "numeric2", "category"])
     assert isinstance(result1, widgets.Tab)
 
     # Test Optional[Dict[str, Any]] for keyword arguments
-    corr_kws: Dict[str, Any] = {"corr_kws": {"method": "pearson"}}  # Correct nesting
-    heat_kws: Dict[str, Any] = {}
-    dist_kws: Dict[str, Any] = {}
+    corr_kws: dict[str, Any] = {"corr_kws": {"method": "pearson"}}  # Correct nesting
+    heat_kws: dict[str, Any] = {}
+    dist_kws: dict[str, Any] = {}
 
     result2 = report(
         sample_data,
@@ -320,3 +313,69 @@ def test_report_parameter_types(sample_data):
         dist_kws=dist_kws,
     )
     assert isinstance(result2, widgets.Tab)
+
+
+# --- Regression tests -------------------------------------------------------
+
+
+def _na_columns_by_count(data):
+    """Mirror how report() orders the columns that carry NAs."""
+    na_counts = data.isna().sum(axis=0)
+    return na_counts[na_counts > 0].sort_values(ascending=False).index.to_numpy()
+
+
+def test_correlation_tab_initial_columns_are_unique_and_stable():
+    """The initial selection used to be sampled *with* replacement."""
+    from src.scikit_na._report import _create_correlation_tab
+
+    rng = np.random.default_rng(0)
+    data = DataFrame(rng.random((40, 8)), columns=[f"c{i}" for i in range(8)])
+    for i, frac in enumerate([0.5, 0.4, 0.3, 0.25, 0.2, 0.1]):
+        data[f"c{i}"] = data[f"c{i}"].mask(rng.random(40) < frac)
+
+    na_cols = _na_columns_by_count(data)
+    initial = na_cols[:5]
+
+    assert len(set(initial)) == len(initial) == 5
+    # Building the tab repeatedly must not change what is shown.
+    for _ in range(5):
+        assert isinstance(_create_correlation_tab(data, na_cols, {}), widgets.HBox)
+
+
+def test_report_orders_na_columns_by_descending_count():
+    """The correlation tab should surface the most incomplete columns first."""
+    data = DataFrame(
+        {
+            "few": [1.0, 2.0, 3.0, None],
+            "many": [None, None, None, 4.0],
+            "some": [1.0, None, None, 4.0],
+            "none": [1.0, 2.0, 3.0, 4.0],
+        }
+    )
+
+    assert _na_columns_by_count(data).tolist() == ["many", "some", "few"]
+
+
+def test_col_with_most_nas_rejects_empty_selection():
+    """An empty column selection used to raise an opaque ValueError from .item()."""
+    from src.scikit_na._report import _col_with_most_nas
+
+    data = DataFrame({"a": [1.0, None], "b": [None, 2.0]})
+
+    with pytest.raises(ValueError, match="At least one column"):
+        _col_with_most_nas(data, [])
+
+
+def test_col_with_most_nas_picks_the_emptiest_column():
+    """The helper replaces a full sort with idxmax; the answer must not change."""
+    from src.scikit_na._report import _col_with_most_nas
+
+    data = DataFrame(
+        {
+            "a": [1.0, None, 3.0],
+            "b": [None, None, None],
+            "c": [1.0, 2.0, 3.0],
+        }
+    )
+
+    assert _col_with_most_nas(data, ["a", "b", "c"]) == "b"

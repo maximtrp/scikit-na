@@ -22,9 +22,9 @@ __all__ = [
     "plot_scatter",
     "plot_stairbars",
     "plot_stairs",
+    "view_dist",
 ]
 from collections.abc import Iterable, Sequence
-from numbers import Integral
 
 from altair import (
     Axis,
@@ -41,9 +41,30 @@ from altair import (
 )
 from ipywidgets import interact, widgets
 from numpy import arange, fill_diagonal, nan
-from pandas import DataFrame
+from pandas import DataFrame, Series
+from pandas.api.types import is_bool_dtype
 
-from .._stats import _select_cols, correlate, stairs
+from .._stats import _is_nominal_series, _select_cols, correlate, stairs
+
+
+def _hist_x_heuristic(values: Series, thres_uniq: int) -> dict:
+    """Pick Altair `bin`/`type` settings for the X axis of a histogram.
+
+    Nominal data (object, string, categorical, boolean) is never binned. Numeric
+    data is binned unless it is integral with few enough distinct values, in
+    which case an ordinal axis reads better.
+    """
+    if _is_nominal_series(values) or is_bool_dtype(values):
+        return {"bin": False, "type": "nominal"}
+
+    non_na = values.dropna()
+    # `kind` is "i"/"u" for integer dtypes; a float column holding only whole
+    # numbers should be treated the same way.
+    is_integral = non_na.dtype.kind in "iu" or (non_na.dtype.kind == "f" and (non_na % 1 == 0).all())
+
+    if is_integral and non_na.nunique() < thres_uniq:
+        return {"bin": False, "type": "ordinal"}
+    return {"bin": True, "type": "quantitative"}
 
 
 def plot_hist(
@@ -127,8 +148,7 @@ def plot_hist(
         joinagg_kws = {"total": "count()", "groupby": [col_na]}
     if not calc_kws:
         calc_kws = {"y": "1 / datum.total"}
-    if not x_kws:
-        x_kws = {"title": xlabel or col}
+    x_defaults = {"title": xlabel or col}
     if not y_kws:
         y_kws = {"type": "quantitative", "stack": None, "title": ylabel}
     if not color_kws:
@@ -138,22 +158,11 @@ def plot_hist(
 
     # Simple heuristic for choosing histplot parameters
     if heuristic:
-        # 1) If dtype is object, do not bin anything and treat as nominal
-        if data[col].dtype == object:
-            x_kws.update({"bin": False})
-            x_kws.update({"type": "nominal"})
+        x_defaults.update(_hist_x_heuristic(data[col], thres_uniq))
 
-        # 2) Check the number of unique values
-        else:
-            few_uniques = data[col].dropna().unique().size < thres_uniq
-            integers = data[col].dropna().apply(lambda x: not isinstance(x, Integral)).sum()
-
-            if not integers and few_uniques:
-                x_kws.update({"bin": False})
-                x_kws.update({"type": "ordinal"})
-            else:
-                x_kws.update({"bin": True})
-                x_kws.update({"type": "quantitative"})
+    # Explicitly passed `x_kws` always win over the heuristic, and the caller's
+    # dictionary is never mutated.
+    x_kws = {**x_defaults, **(x_kws or {})}
 
     data_copy = data.loc[:, [col, col_na]].copy()
     data_copy[col_na] = data_copy.loc[:, col_na].isna().replace(na_replace)
@@ -656,28 +665,27 @@ def plot_heatmap(
     if not names:
         names = ["Filled", "NA", "Droppable"]
     if not color_kws:
+        colors = ["green", "red", "orange"]
+        domain = names if droppable else names[0:2]
         color_kws = {
             "shorthand": zlabel,
             "type": "nominal",
-            "scale": Scale(
-                domain=names[0:2] if not droppable else names,
-                range=["green", "red", "orange"],
-            ),
+            "scale": Scale(domain=domain, range=colors[: len(domain)]),
         }
     if not rect_kws:
         rect_kws = {"clip": True}
 
     cols = _select_cols(data, columns)
 
-    data_copy = data.loc[:, cols].copy().isna()
+    data_copy = data.loc[:, cols].isna()
     if sort:
         cols_sorted = data_copy.sum().sort_values(ascending=False).index.tolist()
-        data_copy.sort_values(by=cols_sorted, inplace=True)
-        x_kws.update({"sort": cols_sorted})
+        data_copy = data_copy.sort_values(by=cols_sorted)
+        x_kws = {**x_kws, "sort": cols_sorted}
 
     if droppable:
-        non_na_mask = ~data_copy.values
-        na_rows_mask = data_copy.any(axis=1).values[:, None]
+        non_na_mask = ~data_copy.to_numpy()
+        na_rows_mask = data_copy.any(axis=1).to_numpy()[:, None]
         droppable_mask = non_na_mask & na_rows_mask
         data_copy = data_copy.astype(int).mask(droppable_mask, other=2)
     else:
@@ -685,8 +693,17 @@ def plot_heatmap(
 
     data_copy = data_copy.replace(dict(zip([0, 1, 2], names)))
 
-    data_copy[ylabel] = arange(data.shape[0])
-    data_copy = data_copy.melt(id_vars=[ylabel], value_vars=cols, var_name=xlabel, value_name=zlabel)
+    # Reshape under private names first: a selected column may well be called
+    # "Rows"/"Columns"/"Values", which melt() would reject as a clash.
+    row_key = "__row__"
+    data_copy[row_key] = arange(data_copy.shape[0])
+    data_copy = data_copy.melt(
+        id_vars=[row_key],
+        value_vars=list(cols),
+        var_name="__column__",
+        value_name="__value__",
+    )
+    data_copy.columns = [ylabel, xlabel, zlabel]
 
     chart = (
         Chart(data_copy, **chart_kws)
@@ -765,7 +782,14 @@ def plot_corr(
         corr_values = data_corr.to_numpy(copy=True)
         fill_diagonal(corr_values, nan)
         data_corr = DataFrame(corr_values, index=data_corr.index, columns=data_corr.columns)
-    data_corr_melt = data_corr.reset_index(drop=False).melt(id_vars=["index"])
+    # Drop any index/column names first: they would otherwise collide with the
+    # "index"/"variable"/"value" names that the reshaping below relies on.
+    data_corr = data_corr.rename_axis(index=None, columns=None)
+    data_corr_melt = data_corr.rename_axis(index="index").reset_index().melt(
+        id_vars=["index"],
+        var_name="variable",
+        value_name="value",
+    )
 
     base = Chart(data_corr_melt, **chart_kws).encode(x=X(**x_kws), y=Y(**y_kws))
 
@@ -802,10 +826,11 @@ def view_dist(data: DataFrame, columns: Sequence[str] | None = None, **kwargs):
 
     """
     cols = _select_cols(data, columns)
-    na_cols = data.isna().sum(axis=0).rename("na_num").to_frame().query("na_num > 0").index.values
+    na_counts = data.loc[:, cols].isna().sum(axis=0)
+    na_cols = na_counts.index[na_counts > 0].to_numpy()
 
     return interact(
-        lambda Column, NA: (
+        lambda Column, NA: (  # noqa: N803
             plot_hist(data, col=Column, col_na=NA, **kwargs)
             if Column != NA
             else widgets.HTML('<em style="color: red">Note: select different columns</em>')

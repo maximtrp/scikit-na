@@ -63,12 +63,26 @@ max-line-length = 120
 ignore = ["E501"]
 max-line-length = 120
 
-[tool.flake8.lint.per-file-ignores]
-"tests/*.py" = ["S101"]
-
 [tool.ruff]
 line-length = 120
-select = ["ALL"]
+target-version = "py39"
+extend-exclude = ["build", "temp", "_tests"]
+
+# Explicit set instead of "ALL". Omitted: ANN, D, FBT, PLR, EM, TRY003, COM, Q, ERA, CPY.
+[tool.ruff.lint]
+select = [
+    "F", "E", "W", "B", "I", "N", "UP", "SIM", "RET", "ARG", "C4",
+    "PD", "NPY", "PT", "PTH", "A", "RUF", "PLC", "PLE", "PLW",
+    "BLE",  # catches `except Exception` swallowing test failures
+]
+ignore = [
+    "E501",    # formatter's job
+    "PLC0415", # local imports are deliberate
+    "RUF100",  # noqa markers here serve flake8/prospector, which ruff can't see
+    "PD010",   # describe().T has a MultiIndex; pivot_table is not equivalent
+]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*.py" = ["S101"]
+"src/**" = ["PT"]  # test_hypothesis is public API, not a pytest test
+"tests/**" = ["S101", "ARG", "N806", "NPY002", "PTH"]
+"docs/**" = ["A001", "INP001"]

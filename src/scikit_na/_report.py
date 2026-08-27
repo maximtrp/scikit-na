@@ -17,11 +17,12 @@ from __future__ import annotations
 __all__ = ["report"]
 import logging
 from collections.abc import Sequence
-from typing import Any, Dict
+from typing import Any
 
 from IPython.display import display
 from ipywidgets import widgets
-from numpy import array, random, setdiff1d
+from numpy import array, setdiff1d
+from numpy.random import default_rng
 from pandas import DataFrame
 
 from ._stats import (
@@ -105,10 +106,17 @@ def _create_visualization_tab(data: DataFrame, cols: list, heat_kws: dict | None
     return widgets.VBox([select_vis_accordion, vis_accordion])
 
 
+def _col_with_most_nas(data: DataFrame, cols: list) -> str:
+    """Return the name of the column holding the most NA values."""
+    if len(cols) == 0:
+        raise ValueError("At least one column is required to build a report.")
+    return data.loc[:, cols].isna().sum().idxmax()
+
+
 def _create_statistics_tab(data: DataFrame, cols: list, round_dec: int, layout: widgets.Layout) -> widgets.VBox:
     """Create the statistics tab with descriptive statistics."""
     # Choose column with most NAs
-    col_with_most_nas = data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
+    col_with_most_nas = _col_with_most_nas(data, cols)
 
     # Statistics tables
     stats_table = widgets.Output()
@@ -179,14 +187,8 @@ def _create_statistics_tab(data: DataFrame, cols: list, round_dec: int, layout: 
             )
         else:
             stats_table.append_display_data(widgets.HTML("No numeric columns to describe"))
-    except (ValueError, TypeError, KeyError, IndexError) as e:
-        logger.warning("Could not describe numeric columns due to data/parameter issue: %s", e)
-        stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {e!s}"))
-    except (ImportError, AttributeError) as e:
-        logger.warning("Could not describe numeric columns due to missing dependencies: %s", e)
-        stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {e!s}"))
     except Exception as e:
-        logger.exception("Unexpected error occurred while describing numeric columns")
+        logger.warning("Could not describe numeric columns", exc_info=True)
         stats_table.append_display_data(widgets.HTML(f"Error describing numeric columns: {e!s}"))
 
     stats_table_accordion = widgets.Accordion(children=[stats_table])
@@ -206,14 +208,8 @@ def _create_statistics_tab(data: DataFrame, cols: list, round_dec: int, layout: 
             )
         else:
             stats_table2.append_display_data(widgets.HTML("No nominal columns to describe"))
-    except (ValueError, TypeError, KeyError, IndexError) as e:
-        logger.warning("Could not describe nominal columns due to data/parameter issue: %s", e)
-        stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {e!s}"))
-    except (ImportError, AttributeError) as e:
-        logger.warning("Could not describe nominal columns due to missing dependencies: %s", e)
-        stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {e!s}"))
     except Exception as e:
-        logger.exception("Unexpected error occurred while describing nominal columns")
+        logger.warning("Could not describe nominal columns", exc_info=True)
         stats_table2.append_display_data(widgets.HTML(f"Error describing nominal columns: {e!s}"))
 
     stats_table2_accordion = widgets.Accordion(children=[stats_table2])
@@ -228,8 +224,9 @@ def _create_correlation_tab(data: DataFrame, na_cols: array, corr_kws: dict) -> 
     corr_image = widgets.Output()
 
     if len(na_cols) > 0:
-        # Select a subset of NA columns for initial display
-        initial_cols = random.choice(na_cols, min(5, len(na_cols)))
+        # Show the columns with the most NAs first. `na_cols` is already ordered
+        # by descending NA count, so this is both deterministic and duplicate-free.
+        initial_cols = na_cols[:5]
         corr_image.append_display_data(
             plot_corr(data, columns=initial_cols, **corr_kws).properties(width=400, height=400),
         )
@@ -262,9 +259,9 @@ def _create_correlation_tab(data: DataFrame, na_cols: array, corr_kws: dict) -> 
 def _create_distributions_tab(data: DataFrame, cols: list, dist_kws: dict) -> widgets.HBox:
     """Create the distributions tab with histograms and KDE plots."""
     # Choose column with most NAs and a random column
-    col_with_most_nas = data.loc[:, cols].isna().sum().sort_values().tail(1).index.item()
+    col_with_most_nas = _col_with_most_nas(data, cols)
     remaining_cols = setdiff1d(cols, [col_with_most_nas])
-    random_col = random.choice(remaining_cols) if len(remaining_cols) > 0 else col_with_most_nas
+    random_col = default_rng().choice(remaining_cols) if len(remaining_cols) > 0 else col_with_most_nas
 
     # Distribution plot
     dist_image = widgets.Output()
@@ -324,9 +321,9 @@ def report(
     columns: Sequence[str] | None = None,
     layout: widgets.Layout | None = None,
     round_dec: int = 2,
-    corr_kws: Dict[str, Any] | None = None,
-    heat_kws: Dict[str, Any] | None = None,
-    dist_kws: Dict[str, Any] | None = None,
+    corr_kws: dict[str, Any] | None = None,
+    heat_kws: dict[str, Any] | None = None,
+    dist_kws: dict[str, Any] | None = None,
 ) -> widgets.Tab:
     """Create comprehensive interactive missing data analysis dashboard.
 
@@ -450,7 +447,8 @@ def report(
 
     # Prepare data
     cols = _select_cols(data, columns).tolist()
-    na_cols = data.loc[:, cols].isna().sum(axis=0).rename("na_num").to_frame().query("na_num > 0").index.values
+    na_counts = data.loc[:, cols].isna().sum(axis=0)
+    na_cols = na_counts[na_counts > 0].sort_values(ascending=False).index.to_numpy()
 
     layout = layout or widgets.Layout(grid_template_columns="1fr 1fr", justify_items="center")
 

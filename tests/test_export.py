@@ -452,3 +452,37 @@ class TestExportIntegration:
             assert report_summary["total_missing_values"] > 0
             assert 0 < report_summary["missing_percentage"] < 100
             assert len(report_summary["columns_analyzed"]) == 6
+
+
+class TestExportSummaryPathHandling:
+    """Regression tests for format validation and extension handling."""
+
+    def test_invalid_format_creates_nothing(self, sample_data_with_na):
+        """The format used to be validated only after doing all the work."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "new_dir" / "summary"
+
+            with pytest.raises(ValueError, match="Unsupported format"):
+                export_summary(sample_data_with_na, output_path, format="bogus")
+
+            assert not output_path.parent.exists()
+
+    @pytest.mark.parametrize("fmt", ["csv", "json", "html"])
+    def test_extension_is_added_when_missing(self, sample_data_with_na, fmt):
+        """The docstring promises this; the code never did it."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "summary"
+
+            export_summary(sample_data_with_na, output_path, format=fmt)
+
+            assert output_path.with_suffix(f".{fmt}").exists()
+
+    def test_existing_extension_is_left_alone(self, sample_data_with_na):
+        """An explicit filename must be written exactly as given."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            output_path = Path(tmp_dir) / "summary.txt"
+
+            export_summary(sample_data_with_na, output_path, format="csv")
+
+            assert output_path.exists()
+            assert not output_path.with_suffix(".csv").exists()

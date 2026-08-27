@@ -3,6 +3,7 @@
 import logging
 
 import numpy as np
+import pandas as pd
 import pytest
 from pandas import DataFrame
 
@@ -234,3 +235,113 @@ def test_plot_corr_with_options(sample_data):
     )
 
     assert isinstance(chart, alt.LayerChart)
+
+
+# --- Regression tests -------------------------------------------------------
+
+
+@pytest.fixture(name="mixed_dtypes_data")
+def fixture_mixed_dtypes_data():
+    """DataFrame covering the dtypes the histogram heuristic must distinguish."""
+    return DataFrame(
+        {
+            "na_col": [1.0, None, 3.0, 4.0, None, 6.0],
+            "floats": [0.1, 1.7, 2.3, 3.9, 4.4, 5.2],
+            "small_ints": [1, 2, 3, 2, 1, 3],
+            "strings": pd.array(["x", "y", None, "z", "x", "y"], dtype="string"),
+            "categories": pd.Categorical(["a", "b", "a", "b", "a", "b"]),
+            "objects": ["p", "q", "r", "p", "q", "r"],
+            "bools": [True, False, True, False, True, False],
+        }
+    )
+
+
+@pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
+def test_plot_hist_does_not_mutate_caller_x_kws(mixed_dtypes_data):
+    """The heuristic must not write back into the dict the caller passed in."""
+    x_kws = {"title": "Custom title"}
+    plot_hist(mixed_dtypes_data, col="floats", col_na="na_col", x_kws=x_kws)
+
+    assert x_kws == {"title": "Custom title"}
+
+
+@pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
+def test_plot_hist_explicit_x_kws_override_heuristic(mixed_dtypes_data):
+    """Explicitly passed `bin`/`type` win over whatever the heuristic picked."""
+    chart = plot_hist(
+        mixed_dtypes_data,
+        col="floats",
+        col_na="na_col",
+        x_kws={"bin": False, "type": "ordinal"},
+    )
+    encoding = chart.encoding.x.to_dict()
+
+    assert encoding["bin"] is False
+    assert encoding["type"] == "ordinal"
+
+
+@pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
+@pytest.mark.parametrize(
+    ("col", "expected_type", "expected_bin"),
+    [
+        ("strings", "nominal", False),
+        ("categories", "nominal", False),
+        ("objects", "nominal", False),
+        ("bools", "nominal", False),
+        ("small_ints", "ordinal", False),
+        ("floats", "quantitative", True),
+    ],
+)
+def test_plot_hist_heuristic_classifies_dtypes(mixed_dtypes_data, col, expected_type, expected_bin):
+    """Nominal dtypes must never be binned onto a quantitative axis."""
+    encoding = plot_hist(mixed_dtypes_data, col=col, col_na="na_col").encoding.x.to_dict()
+
+    assert encoding["type"] == expected_type
+    assert encoding["bin"] is expected_bin
+
+
+@pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
+@pytest.mark.parametrize("columns_name", ["index", "variable", "value", "anything", None])
+def test_plot_corr_handles_named_columns_index(sample_data, columns_name):
+    """Reshaping must not clash with a name carried on the columns index."""
+    data = sample_data.copy()
+    data.columns.name = columns_name
+
+    assert isinstance(plot_corr(data), (alt.Chart, alt.LayerChart))
+
+
+@pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
+@pytest.mark.parametrize("colliding_name", ["Rows", "Columns", "Values"])
+def test_plot_heatmap_handles_columns_named_like_labels(sample_data, colliding_name):
+    """A column named after an axis label must not break the melt."""
+    data = sample_data.rename(columns={sample_data.columns[0]: colliding_name})
+
+    assert isinstance(plot_heatmap(data), alt.Chart)
+
+
+@pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
+@pytest.mark.parametrize(("droppable", "expected"), [(True, 3), (False, 2)])
+def test_plot_heatmap_color_scale_domain_matches_range(sample_data, droppable, expected):
+    """A colour scale with more range entries than domain entries is invalid."""
+    scale = plot_heatmap(sample_data, droppable=droppable).encoding.color.to_dict()["scale"]
+
+    assert len(scale["domain"]) == expected
+    assert len(scale["range"]) == expected
+
+
+@pytest.mark.skipif(not ALTAIR_AVAILABLE, reason="Altair is not available")
+def test_view_dist_restricts_na_columns_to_selection():
+    """The NA dropdown must only offer columns from the `columns` selection."""
+    data = DataFrame(
+        {
+            "selected_na": [1.0, None, 3.0],
+            "selected_full": [1.0, 2.0, 3.0],
+            "excluded_na": [None, None, 3.0],
+        }
+    )
+
+    widget = view_dist(data, columns=["selected_na", "selected_full"])
+    na_options = widget.widget.children[1].options
+
+    assert "excluded_na" not in na_options
+    assert "selected_na" in na_options

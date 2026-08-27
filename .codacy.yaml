@@ -1,0 +1,20 @@
+---
+# Ruff/Pylint are configured in pyproject.toml and .pylintrc.
+
+engines:
+  bandit:
+    exclude_paths:
+      - "tests/**"   # B101: asserts are how tests assert
+  duplication:
+    exclude_paths:
+      - "tests/**"
+  prospector:
+    exclude_paths:
+      - "tests/**"
+      - "docs/**"
+
+exclude_paths:
+  - "build/**"
+  - "temp/**"
+  - "_tests/**"
+  - "docs/**"

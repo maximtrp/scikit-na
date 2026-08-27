@@ -2,17 +2,16 @@ import numpy as np
 import pandas as pd
 import pytest
 from pandas import DataFrame, read_csv
-from pytest import fixture
 
 from src import scikit_na as na
 
 
-@fixture(name="data")
+@pytest.fixture(name="data")
 def fixture_data():
     return read_csv("./tests/titanic_dataset.csv")
 
 
-@fixture(name="simple_data")
+@pytest.fixture(name="simple_data")
 def fixture_simple_data():
     """Create simple test data for more controlled testing."""
     return DataFrame(

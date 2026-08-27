@@ -12,7 +12,7 @@ __all__ = ["export_report", "export_summary"]
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Literal
+from typing import Literal
 
 import pandas as pd
 from pandas import DataFrame
@@ -27,7 +27,7 @@ ExportFormat = Literal["csv", "json", "html", "xlsx"]
 def export_summary(
     data: DataFrame,
     output_path: str | Path,
-    format: ExportFormat = "csv",
+    format: ExportFormat = "csv",  # noqa: A002
     columns: list | None = None,
     per_column: bool = True,
     round_dec: int = 2,
@@ -109,22 +109,23 @@ def export_summary(
     - XLSX format supports rich formatting but requires pandas Excel dependencies
     - The function automatically creates parent directories if they don't exist
     """
+    writers = {
+        "csv": lambda df, path: df.to_csv(path),
+        "json": lambda df, path: df.to_json(path, orient="index", indent=2),
+        "html": lambda df, path: df.to_html(path, table_id="na-summary"),
+        "xlsx": lambda df, path: df.to_excel(path, sheet_name="NA Summary"),
+    }
+    if format not in writers:
+        raise ValueError(f"Unsupported format: {format}. Use one of: {', '.join(writers)}")
+
     output_path = Path(output_path)
+    if not output_path.suffix:
+        output_path = output_path.with_suffix(f".{format}")
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Generate summary
     summary_df = summary(data, columns=columns, per_column=per_column, round_dec=round_dec)
-
-    if format == "csv":
-        summary_df.to_csv(output_path)
-    elif format == "json":
-        summary_df.to_json(output_path, orient="index", indent=2)
-    elif format == "html":
-        summary_df.to_html(output_path, table_id="na-summary")
-    elif format == "xlsx":
-        summary_df.to_excel(output_path, sheet_name="NA Summary")
-    else:
-        raise ValueError(f"Unsupported format: {format}. Use one of: csv, json, html, xlsx")
+    writers[format](summary_df, output_path)
 
 
 def export_report(
@@ -134,7 +135,7 @@ def export_report(
     round_dec: int = 2,
     include_correlations: bool = True,
     include_descriptions: bool = True,
-) -> Dict[str, Path]:
+) -> dict[str, Path]:
     """Export comprehensive missing data report to multiple files.
 
     Parameters
@@ -154,7 +155,7 @@ def export_report(
 
     Returns
     -------
-    Dict[str, Path]
+    dict[str, Path]
         Dictionary mapping report sections to file paths.
 
     """
@@ -183,23 +184,14 @@ def export_report(
                 corr_path = output_dir / "na_correlations.csv"
                 corr_df.round(round_dec).to_csv(corr_path)
                 exported_files["correlations"] = corr_path
-        except (ValueError, TypeError, KeyError) as e:
-            logger.warning("Could not generate correlations due to data/parameter issue: %s", e)
-            print(f"Warning: Could not generate correlations: {e}")
-        except (ImportError, AttributeError) as e:
-            logger.warning("Could not generate correlations due to missing dependencies: %s", e)
-            print(f"Warning: Could not generate correlations: {e}")
         except Exception as e:
-            logger.exception("Unexpected error occurred while generating correlations")
+            logger.warning("Could not generate correlations", exc_info=True)
             print(f"Warning: Could not generate correlations: {e}")
 
     if include_descriptions:
         # Descriptive statistics for columns with most NAs
         try:
-            if columns is None:
-                cols = data.columns.tolist()
-            else:
-                cols = columns
+            cols = analyzed_columns
 
             # Find column with most NAs
             na_counts = data[cols].isna().sum()
@@ -211,14 +203,8 @@ def export_report(
                 desc_path = output_dir / f"descriptive_stats_{col_most_na}.csv"
                 desc_df.round(round_dec).to_csv(desc_path)
                 exported_files["descriptive_stats"] = desc_path
-        except (ValueError, TypeError, KeyError, IndexError) as e:
-            logger.warning("Could not generate descriptive statistics due to data/parameter issue: %s", e)
-            print(f"Warning: Could not generate descriptive statistics: {e}")
-        except (ImportError, AttributeError) as e:
-            logger.warning("Could not generate descriptive statistics due to missing dependencies: %s", e)
-            print(f"Warning: Could not generate descriptive statistics: {e}")
         except Exception as e:
-            logger.exception("Unexpected error occurred while generating descriptive statistics")
+            logger.warning("Could not generate descriptive statistics", exc_info=True)
             print(f"Warning: Could not generate descriptive statistics: {e}")
 
     # Generate a summary report
@@ -234,7 +220,7 @@ def export_report(
     }
 
     report_path = output_dir / "report_summary.json"
-    with open(report_path, "w") as f:
+    with report_path.open("w", encoding="utf-8") as f:
         json.dump(report_summary, f, indent=2)
     exported_files["report_summary"] = report_path
 
