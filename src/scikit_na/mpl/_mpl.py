@@ -35,7 +35,8 @@ def plot_corr(
     corr_kws: dict | None = None,
     heat_kws: dict | None = None,
 ) -> Axes:
-    """Plot a correlation heatmap.
+    """
+    Plot a correlation heatmap.
 
     Parameters
     ----------
@@ -48,7 +49,7 @@ def plot_corr(
     corr_kws : dict, optional
         Keyword arguments passed to :py:meth:`pandas.DataFrame.corr()`.
     heat_kws : dict, optional
-        Keyword arguments passed to :py:meth:`pandas.DataFrame.heatmap()`.
+        Keyword arguments passed to :py:func:`seaborn.heatmap`.
 
     Returns
     -------
@@ -83,7 +84,8 @@ def plot_stats(
     idxint: int | None = None,
     **kwargs,
 ) -> Axes:
-    """Plot barplot with NA descriptive statistics.
+    """
+    Plot barplot with NA descriptive statistics.
 
     Parameters
     ----------
@@ -110,10 +112,7 @@ def plot_stats(
     if not (idxstr is not None or idxint is not None):
         raise ValueError("Error: `idxstr` or `idxint` must be specified")
 
-    if idxstr is not None:
-        y_data = na_info.loc[idxstr, :]
-    elif idxint is not None:
-        y_data = na_info.iloc[idxint, :]
+    y_data = na_info.loc[idxstr, :] if idxstr is not None else na_info.iloc[idxint, :]
     x_data = na_info.columns
 
     return barplot(x=x_data, y=y_data, **kwargs)
@@ -185,8 +184,8 @@ def plot_heatmap(
     legend_kws: dict | None = None,
     sb_kws: dict | None = None,
 ) -> Axes:
-    """NA heatmap. Plots NA values as red lines and normal values
-    as black lines.
+    """
+    Plot NA values as red lines and normal values as black lines.
 
     Parameters
     ----------
@@ -370,8 +369,11 @@ def plot_hist(
     common_norm: bool = False,
     hist_kws: dict | None = None,
 ) -> Axes:
-    """Histogram plot to compare distributions of values in column `col`
-    split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
+    """
+    Compare distributions grouped by missingness with a histogram.
+
+    Values from column ``col`` are split into two groups (NA/non-NA) according
+    to missingness in ``col_na``.
 
     Parameters
     ----------
@@ -383,6 +385,8 @@ def plot_hist(
         Name of column to group values by (NA/Non-NA).
     col_na_fmt : str
         Legend title format string.
+    stat : str, default "density"
+        Statistic computed for each histogram bin.
     common_norm : bool, optional
         Use common norm.
     hist_kws : dict, optional
@@ -408,8 +412,11 @@ def plot_kde(
     common_norm: bool = False,
     kde_kws: dict | None = None,
 ) -> Axes:
-    """KDE plot to compare distributions of values in column `col`
-    split into two groups (NA/Non-NA) by column `col_na` in input DataFrame.
+    """
+    Compare distributions grouped by missingness with a KDE plot.
+
+    Values from column ``col`` are split into two groups (NA/non-NA) according
+    to missingness in ``col_na``.
 
     Parameters
     ----------

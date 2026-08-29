@@ -1,5 +1,5 @@
 Statistical Analysis
-===================
+====================
 
 Understanding missing data patterns through statistical analysis is crucial for making
 informed decisions about data handling strategies. **scikit-na** provides comprehensive

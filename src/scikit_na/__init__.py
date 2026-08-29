@@ -1,4 +1,5 @@
-"""scikit-na: Comprehensive missing data analysis toolkit for Python.
+"""
+scikit-na: Comprehensive missing data analysis toolkit for Python.
 
 This package provides statistical functions, interactive visualizations, and
 export utilities for analyzing missing data patterns in pandas DataFrames.
@@ -36,12 +37,11 @@ Basic usage with a DataFrame containing missing values:
 >>> # Test for missing data mechanisms
 >>> from scipy.stats import mannwhitneyu
 >>> na.test_hypothesis(data, 'income', mannwhitneyu, columns=['age'])
+
 """
 
-from . import (
-    altair,  # noqa: F401
-    mpl,  # noqa: F401
-)
+from . import altair as altair  # pylint: disable=useless-import-alias
+from . import mpl as mpl  # pylint: disable=useless-import-alias
 from ._export import *  # noqa: F401, F403
 from ._report import *  # noqa: F401, F403
 from ._stats import *  # noqa: F401, F403

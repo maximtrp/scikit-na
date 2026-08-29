@@ -1,4 +1,5 @@
-"""Interactive reporting widgets for comprehensive missing data analysis.
+"""
+Interactive reporting widgets for comprehensive missing data analysis.
 
 This module provides an interactive Jupyter widget-based interface for exploring
 missing data patterns. It combines multiple analysis types into a unified,
@@ -325,7 +326,8 @@ def report(
     heat_kws: dict[str, Any] | None = None,
     dist_kws: dict[str, Any] | None = None,
 ) -> widgets.Tab:
-    """Create comprehensive interactive missing data analysis dashboard.
+    """
+    Create comprehensive interactive missing data analysis dashboard.
 
     Generates a multi-tab Jupyter widget interface for exploring missing data
     patterns through various analytical lenses. This function provides a complete
@@ -439,6 +441,7 @@ def report(
     summary : Generate numerical summaries without interactive interface
     altair.plot_heatmap : Create standalone missing data heatmaps
     export_report : Save comprehensive analysis results to files
+
     """
     # Initialize default parameters
     corr_kws = corr_kws or {}

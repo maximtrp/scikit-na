@@ -1,4 +1,5 @@
-"""Export functionality for missing data analysis reports and visualizations.
+"""
+Export functionality for missing data analysis reports and visualizations.
 
 This module provides comprehensive export capabilities for missing data analysis results,
 supporting multiple file formats and automated report generation. It enables researchers
@@ -27,12 +28,13 @@ ExportFormat = Literal["csv", "json", "html", "xlsx"]
 def export_summary(
     data: DataFrame,
     output_path: str | Path,
-    format: ExportFormat = "csv",  # noqa: A002
+    format: ExportFormat = "csv",  # noqa: A002  # pylint: disable=redefined-builtin
     columns: list | None = None,
     per_column: bool = True,
     round_dec: int = 2,
 ) -> None:
-    """Export missing data summary statistics to various file formats.
+    """
+    Export missing data summary statistics to various file formats.
 
     Generates and saves comprehensive summary statistics about missing data patterns
     in multiple formats for documentation, reporting, or further analysis. The function
@@ -108,6 +110,7 @@ def export_summary(
     - JSON format preserves data types and is suitable for programmatic access
     - XLSX format supports rich formatting but requires pandas Excel dependencies
     - The function automatically creates parent directories if they don't exist
+
     """
     writers = {
         "csv": lambda df, path: df.to_csv(path),
@@ -136,7 +139,8 @@ def export_report(
     include_correlations: bool = True,
     include_descriptions: bool = True,
 ) -> dict[str, Path]:
-    """Export comprehensive missing data report to multiple files.
+    """
+    Export comprehensive missing data report to multiple files.
 
     Parameters
     ----------

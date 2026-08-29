@@ -56,7 +56,7 @@ class TestExportSummary:
             assert output_path.exists()
 
             # Read back and verify content
-            with open(output_path) as f:
+            with open(output_path, encoding="utf-8") as f:
                 result_data = json.load(f)
             assert isinstance(result_data, dict)
             # JSON structure has row names as keys and columns as nested dict
@@ -73,7 +73,7 @@ class TestExportSummary:
             assert output_path.exists()
 
             # Read back and verify content
-            with open(output_path) as f:
+            with open(output_path, encoding="utf-8") as f:
                 content = f.read()
             assert "<table" in content
             assert "na-summary" in content
@@ -204,7 +204,7 @@ class TestExportReport:
                 include_descriptions=False,
             )
 
-            with open(exported_files["report_summary"]) as file:
+            with open(exported_files["report_summary"], encoding="utf-8") as file:
                 report_summary = json.load(file)
 
         assert report_summary["dataset_shape"] == [2, 1]
@@ -250,7 +250,7 @@ class TestExportReport:
             exported_files = export_report(sample_data_with_na, output_dir)
 
             # Read and verify report summary
-            with open(exported_files["report_summary"]) as f:
+            with open(exported_files["report_summary"], encoding="utf-8") as f:
                 report_summary = json.load(f)
 
             assert "analysis_date" in report_summary
@@ -355,7 +355,7 @@ class TestExportEdgeCases:
             assert "report_summary" in exported_files
 
             # Read report summary
-            with open(exported_files["report_summary"]) as f:
+            with open(exported_files["report_summary"], encoding="utf-8") as f:
                 report_summary = json.load(f)
 
             assert report_summary["total_missing_values"] == 0
@@ -445,7 +445,7 @@ class TestExportIntegration:
                 assert Path(exported_files[file_key]).exists()
 
             # Verify report summary content
-            with open(exported_files["report_summary"]) as f:
+            with open(exported_files["report_summary"], encoding="utf-8") as f:
                 report_summary = json.load(f)
 
             assert report_summary["dataset_shape"] == [n_rows, 6]

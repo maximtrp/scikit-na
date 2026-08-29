@@ -28,7 +28,8 @@ def _select_cols(
 
 
 def _is_nominal_series(series: Series) -> bool:
-    """Tell whether a Series should be treated as nominal (categorical) data.
+    """
+    Tell whether a Series should be treated as nominal (categorical) data.
 
     Covers plain ``object`` columns as well as the pandas extension dtypes that
     represent categories or text: ``StringDtype`` and ``CategoricalDtype``.
@@ -88,7 +89,8 @@ def summary(
     per_column: bool = True,
     round_dec: int = 2,
 ) -> DataFrame:
-    """Generate comprehensive summary statistics for missing data patterns.
+    """
+    Generate comprehensive summary statistics for missing data patterns.
 
     Computes detailed statistics about missing values including counts, percentages,
     and the impact of missing data on dataset completeness. This function provides
@@ -109,20 +111,9 @@ def summary(
     Returns
     -------
     DataFrame
-        Summary statistics with the following metrics:
-
-        When per_column=True:
-        - na_count: Absolute count of missing values per column
-        - na_pct_per_col: Percentage of missing values per column
-        - na_pct_total: Percentage of column's NAs relative to all NAs
-        - na_unique_per_col: Count of rows where only this column has NA
-        - na_unique_pct_per_col: Percentage of unique NAs for this column
-        - rows_after_dropna: Remaining rows after dropping NAs from this column
-        - rows_after_dropna_pct: Percentage of rows remaining after dropna
-
-        When per_column=False:
-        - Dataset-level aggregated statistics including total cells,
-          missing cells, and overall completion rates
+        Per-column missing-value counts, percentages, unique counts, and rows
+        remaining after dropping missing values when ``per_column`` is true.
+        Otherwise, returns dataset-level cell, row, and missing-value totals.
 
     Examples
     --------
@@ -168,6 +159,7 @@ def summary(
       and the overall impact on dataset completeness
     - Use per_column=False for quick dataset-level overview
     - Use per_column=True for detailed column-by-column analysis
+
     """
     cols = _select_cols(data, columns)
     data_selected = data.loc[:, cols]
@@ -242,7 +234,8 @@ def stairs(
     tooltip_label: str = "Size difference",
     dataset_label: str = "(Whole dataset)",
 ) -> DataFrame:
-    """Analyze dataset shrinkage from cumulative column-wise dropna operations.
+    """
+    Analyze dataset shrinkage from cumulative column-wise dropna operations.
 
     This function simulates the effect of sequentially applying pandas.DataFrame.dropna()
     to individual columns, starting with the column that has the most missing values.
@@ -326,6 +319,7 @@ def stairs(
     - The cumulative approach shows realistic impact when using listwise deletion
     - Use with plot_stairs() for visual representation of the analysis
     - Useful for deciding column inclusion/exclusion strategies in analysis pipelines
+
     """
     cols = _select_cols(data, columns).tolist()
     na_mask = data.loc[:, cols].isna()
@@ -360,7 +354,8 @@ def stairs(
 
 
 def correlate(data: DataFrame, columns: Iterable[str] | None = None, drop: bool = True, **kwargs: Any) -> DataFrame:
-    """Calculate correlations between missing value patterns across columns.
+    """
+    Calculate correlations between missing value patterns across columns.
 
     Computes correlation coefficients between the missing value indicators (True/False)
     of different columns to identify relationships in missingness patterns. High
@@ -440,6 +435,7 @@ def correlate(data: DataFrame, columns: Iterable[str] | None = None, drop: bool 
     - This analysis helps identify Missing At Random (MAR) vs Missing Completely
       At Random (MCAR) patterns
     - Use with visualization functions like plot_corr() for easier interpretation
+
     """
     cols = _select_cols(data, columns)
     kwargs.setdefault("method", "spearman")
@@ -455,7 +451,8 @@ def describe(
     columns: Sequence[str] | None = None,
     na_mapping: dict[bool, str] | None = None,
 ) -> DataFrame:
-    """Describe data grouped by a column with NA values.
+    """
+    Describe data grouped by a column with NA values.
 
     Parameters
     ----------
@@ -496,7 +493,8 @@ def model(
     fit_kws: dict[str, Any] | None = None,
     logit_kws: dict[str, Any] | None = None,
 ) -> BinaryResultsWrapper:
-    """Fit logistic regression model to predict missing data patterns.
+    """
+    Fit logistic regression model to predict missing data patterns.
 
     Creates a logistic regression model where the dependent variable indicates
     whether a value is missing (1) or not (0) in the specified column, using
@@ -602,6 +600,7 @@ def model(
     test_hypothesis : Statistical tests for missing data mechanisms
     describe : Descriptive statistics grouped by missingness
     correlate : Correlation analysis of missing data patterns
+
     """
     cols = _select_cols(data, columns)
     cols_pred = setdiff1d(cols, [col_na])
@@ -645,7 +644,8 @@ def test_hypothesis(
     columns: Iterable[str] | dict[str, Callable[..., Any]] | None = None,
     dropna: bool = True,
 ) -> dict[str, Any]:
-    """Test a statistical hypothesis.
+    """
+    Test a statistical hypothesis.
 
     This function can be used to find evidence against missing
     completely at random (MCAR) mechanism by comparing two samples grouped
@@ -658,16 +658,16 @@ def test_hypothesis(
     col_na : str
         Column to group values by. :py:meth:`pandas.Series.isna()` method
         is applied before grouping.
-    columns : Optional[Union[Sequence[str], dict[str, callable]]]
-        Columns to test hypotheses on.
-    test_fn : callable, optional
+    test_fn : callable
         Function to test hypothesis on NA/non-NA data.
         Must be a two-sample test function that accepts two arrays
         and (optionally) keyword arguments such as
         :py:meth:`scipy.stats.mannwhitneyu`.
     test_kws : dict, optional
         Keyword arguments passed to `test_fn` function.
-    dropna: bool = True, optional
+    columns : Iterable[str] or dict[str, callable], optional
+        Columns to test hypotheses on.
+    dropna : bool, default True
         Drop NA values in two samples before running a hypothesis test.
 
     Returns

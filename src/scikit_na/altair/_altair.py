@@ -1,4 +1,5 @@
-"""Interactive visualization functions using Altair for missing data analysis.
+"""
+Interactive visualization functions using Altair for missing data analysis.
 
 This module provides comprehensive interactive visualizations for exploring missing data
 patterns using the Altair/Vega-Lite grammar of graphics. All functions return Chart
@@ -48,7 +49,8 @@ from .._stats import _is_nominal_series, _select_cols, correlate, stairs
 
 
 def _hist_x_heuristic(values: Series, thres_uniq: int) -> dict:
-    """Pick Altair `bin`/`type` settings for the X axis of a histogram.
+    """
+    Pick Altair `bin`/`type` settings for the X axis of a histogram.
 
     Nominal data (object, string, categorical, boolean) is never binned. Numeric
     data is binned unless it is integral with few enough distinct values, in
@@ -89,7 +91,8 @@ def plot_hist(
     y_kws: dict | None = None,
     color_kws: dict | None = None,
 ) -> Chart:
-    """Histogram plot.
+    """
+    Histogram plot.
 
     Plots a histogram of values in a column `col` grouped by NA/non-NA values
     in column `col_na`.
@@ -107,10 +110,16 @@ def plot_hist(
     na_replace : dict, optional
         Dictionary to replace values returned by
         :py:meth:`pandas.Series.isna()` method.
+    heuristic : bool, default True
+        Infer the Altair axis type and whether numeric values should be binned.
+    thres_uniq : int, default 20
+        Maximum unique-value count for treating integral data as ordinal.
     step : bool, optional
         Draw step plot.
     norm : bool, optional
         Normalize values in groups.
+    font_size : int, default 14
+        Font size for axis and legend labels and titles.
     xlabel : str, optional
         X axis label.
     ylabel : str, optional
@@ -215,7 +224,8 @@ def plot_kde(
     y_kws: dict | None = None,
     color_kws: dict | None = None,
 ) -> Chart:
-    """Density plot.
+    """
+    Density plot.
 
     Plots distribution of values in a column `col` grouped by
     NA/non-NA values in column `col_na`.
@@ -233,6 +243,8 @@ def plot_kde(
     na_replace : dict, optional
         Dictionary to replace values returned by
         :py:meth:`pandas.Series.isna()` method.
+    font_size : int, default 14
+        Font size for axis and legend labels and titles.
     xlabel : str, optional
         X axis label.
     ylabel : str, optional
@@ -309,7 +321,8 @@ def plot_scatter(
     x_kws: dict | None = None,
     y_kws: dict | None = None,
 ):
-    """Scatter plot.
+    """
+    Scatter plot.
 
     Parameters
     ----------
@@ -391,7 +404,8 @@ def plot_stairs(
     x_kws: dict | None = None,
     y_kws: dict | None = None,
 ):
-    """Stairs plot.
+    """
+    Stairs plot.
 
     Plots changes in dataset size (rows/instances number) after applying
     :py:meth:`pandas.DataFrame.dropna()` to each column cumulatively.
@@ -412,6 +426,8 @@ def plot_stairs(
         Label for differences in dataset size that is displayed on a tooltip.
     dataset_label : str, optional
         Label for the whole dataset (before dropping any NAs).
+    font_size : int, default 14
+        Font size for axis and legend labels and titles.
     area_kws : dict, optional
         Keyword arguments passed to :py:meth:`altair.Chart.mark_area()` method.
     chart_kws : dict, optional
@@ -462,7 +478,8 @@ def plot_stairbars(
     x_kws: dict | None = None,
     y_kws: dict | None = None,
 ):
-    """Stairbars.
+    """
+    Stairbars.
 
     Plots the changes in dataset size (rows/instances number) after applying
     :py:meth:`pandas.DataFrame.dropna()` to each column cumulatively.
@@ -483,6 +500,8 @@ def plot_stairbars(
         Label for differences in dataset size that is displayed on a tooltip.
     dataset_label : str, optional
         Label for the whole dataset (before dropping any NAs).
+    font_size : int, default 14
+        Font size for axis and legend labels and titles.
     area_kws : dict, optional
         Keyword arguments passed to :py:meth:`altair.Chart.mark_bar()` method.
     chart_kws : dict, optional
@@ -536,7 +555,8 @@ def plot_heatmap(
     y_kws: dict | None = None,
     color_kws: dict | None = None,
 ) -> Chart:
-    """Create interactive heatmap visualization of missing data patterns.
+    """
+    Create interactive heatmap visualization of missing data patterns.
 
     Generates a color-coded heatmap where each cell represents a data point,
     showing the pattern of missing values across rows and columns. This
@@ -650,6 +670,7 @@ def plot_heatmap(
     plot_stairs : Visualize cumulative impact of missing data
     plot_corr : Correlation heatmap for missing value patterns
     summary : Numerical summary of missing data patterns
+
     """
     if not chart_kws:
         chart_kws = {"height": 300}
@@ -736,7 +757,8 @@ def plot_corr(
     color_kws: dict | None = None,
     text_kws: dict | None = None,
 ) -> LayerChart:
-    """Correlation heatmap.
+    """
+    Correlation heatmap.
 
     Parameters
     ----------
@@ -746,10 +768,26 @@ def plot_corr(
         Columns names.
     mask_diag : bool = True
         Mask diagonal on heatmap.
+    annot_color : str, default "black"
+        Color of the correlation-value annotations.
+    round_sgn : int, default 2
+        Number of decimal places displayed in annotations.
+    font_size : int, default 14
+        Font size for labels, titles, and annotations.
+    opacity : float, default 0.5
+        Opacity of heatmap rectangles.
     corr_kws : dict, optional
         Keyword arguments passed to :py:meth:`pandas.DataFrame.corr()` method.
-    heat_kws : dict, optional
-        Keyword arguments passed to :py:meth:`seaborn.heatmap()` method.
+    chart_kws : dict, optional
+        Keyword arguments passed to :py:class:`altair.Chart`.
+    x_kws : dict, optional
+        Keyword arguments passed to :py:class:`altair.X`.
+    y_kws : dict, optional
+        Keyword arguments passed to :py:class:`altair.Y`.
+    color_kws : dict, optional
+        Keyword arguments passed to :py:class:`altair.Color`.
+    text_kws : dict, optional
+        Keyword arguments passed to :py:class:`altair.Text`.
 
     Returns
     -------
@@ -785,10 +823,14 @@ def plot_corr(
     # Drop any index/column names first: they would otherwise collide with the
     # "index"/"variable"/"value" names that the reshaping below relies on.
     data_corr = data_corr.rename_axis(index=None, columns=None)
-    data_corr_melt = data_corr.rename_axis(index="index").reset_index().melt(
-        id_vars=["index"],
-        var_name="variable",
-        value_name="value",
+    data_corr_melt = (
+        data_corr.rename_axis(index="index")
+        .reset_index()
+        .melt(
+            id_vars=["index"],
+            var_name="variable",
+            value_name="value",
+        )
     )
 
     base = Chart(data_corr_melt, **chart_kws).encode(x=X(**x_kws), y=Y(**y_kws))
@@ -807,7 +849,8 @@ def plot_corr(
 
 
 def view_dist(data: DataFrame, columns: Sequence[str] | None = None, **kwargs):
-    """Interactive distribution widget.
+    """
+    Interactive distribution widget.
 
     Interactively observe distribution of values in a selected column
     grouped by NA/non-NA values in another column.

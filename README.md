@@ -1,3 +1,5 @@
+# scikit-na
+
 ![scikit-na logo](https://raw.githubusercontent.com/maximtrp/scikit-na/main/img/logo.png)
 
 ---
@@ -12,7 +14,7 @@
 ## Why scikit-na?
 
 - **Comprehensive Analysis**: Get detailed statistics on missing data patterns
-- **Interactive Reports**: Generate widget-based reports for Jupyter notebooks  
+- **Interactive Reports**: Generate widget-based reports for Jupyter notebooks
 - **Multiple Export Formats**: Share results as CSV, JSON, HTML, or Excel files
 - **Statistical Modeling**: Build logistic regression models to understand missingness
 - **Rich Visualizations**: Create heatmaps, correlation plots, and distribution charts
@@ -24,7 +26,7 @@
 
 - Interactive report (based on [ipywidgets](https://ipywidgets.readthedocs.io/))
 - Export functionality (CSV, JSON, HTML, XLSX formats)
-- Descriptive statistics  
+- Descriptive statistics
 - Regression modeling
 - Hypotheses tests
 - Data visualization
@@ -34,7 +36,7 @@
 If you find this package useful, please consider donating any amount of money.
 This will help me spend more time on supporting open-source software.
 
-<a href="https://www.buymeacoffee.com/maximtrp" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+[![Buy Me A Coffee](https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png)](https://www.buymeacoffee.com/maximtrp)
 
 ## Installation
 
@@ -84,7 +86,7 @@ The following examples use the Titanic dataset (from Kaggle) that contains NA va
 ### Core Functions
 
 | Function | Description |
-|----------|-------------|
+| ---------- | ------------- |
 | `na.summary()` | Comprehensive missing data statistics |
 | `na.correlate()` | Correlations between missing values |
 | `na.describe()` | Descriptive stats grouped by missingness |
@@ -234,7 +236,7 @@ model = na.model(subset, col_na='Age')
 model.summary()
 ```
 
-```
+```text
 Optimization terminated successfully.
 Current function value: 0.467801
 Iterations 7
@@ -303,6 +305,7 @@ exported_files = na.export_report(
 `export_report()` creates a directory containing CSV summaries and JSON metadata.
 Correlation and descriptive-statistics CSV files are included when applicable.
 Individual summaries exported with `export_summary()` support:
+
 - **CSV**: Summary statistics in tabular format
 - **JSON**: Structured data for programmatic access
 - **HTML**: Static summary tables for web viewing
@@ -311,24 +314,28 @@ Individual summaries exported with `export_summary()` support:
 ## API Reference
 
 ### Statistical Functions
+
 - `summary(data, columns=None, per_column=True, round_dec=2)` - Missing data statistics
-- `correlate(data, columns=None, drop=True, **kwargs)` - Correlation analysis  
+- `correlate(data, columns=None, drop=True, **kwargs)` - Correlation analysis
 - `describe(data, col_na, columns=None, na_mapping=None)` - Grouped descriptive stats
 - `model(data, col_na, columns=None, intercept=True, **kwargs)` - Logistic regression
 - `test_hypothesis(data, col_na, test_fn, columns=None, **kwargs)` - Hypothesis testing
 - `stairs(data, columns=None, **kwargs)` - Dataset shrinkage analysis
 
 ### Visualization Functions
+
 - `altair.plot_heatmap(data, **kwargs)` - Missing data heatmap
-- `altair.plot_corr(data, **kwargs)` - Correlation heatmap  
+- `altair.plot_corr(data, **kwargs)` - Correlation heatmap
 - `altair.plot_stairs(data, **kwargs)` - Stairs plot
 - `altair.plot_hist(data, col, col_na, **kwargs)` - Missing data histogram
 
-### Export Functions  
+### Export Functions
+
 - `export_summary(data, output_path, format='csv', **kwargs)` - Export summary statistics
 - `export_report(data, output_dir, **kwargs)` - Export a multi-file analysis report
 
 ### Interactive Reports
+
 - `report(data, columns=None, **kwargs)` - Generate interactive widget-based report
 
 ## Contribution
